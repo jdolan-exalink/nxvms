@@ -30,7 +30,6 @@ services:
     cap_add:
       - SETUID
       - SETGID
-    read_only_root_filesystem: true
     tmpfs:
       - /var/run/postgresql
 

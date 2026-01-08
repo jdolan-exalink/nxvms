@@ -33,9 +33,13 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create non-root user for security
-RUN addgroup -g 101 -S nginx || true && \
-    chown -R nginx:nginx /usr/share/nginx/html
+# Create cache directories and set permissions
+RUN mkdir -p /var/cache/nginx/client_temp && \
+    mkdir -p /var/run/nginx && \
+    addgroup -g 101 -S nginx || true && \
+    chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/run
 
 EXPOSE 5173
 

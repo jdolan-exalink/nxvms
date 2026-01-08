@@ -14,7 +14,11 @@ async function bootstrap() {
     // app.setGlobalPrefix('api/v1');  // COMMENTED OUT - routes already have it
     console.log('3. Global prefix skipped (already in controllers)');
 
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
+    app.useGlobalPipes(new ValidationPipe({ 
+      whitelist: true,
+      forbidNonWhitelisted: false, // Allow extra fields to be sent but not mapped to DTO
+      transform: true,
+    }));
     console.log('4. Validation pipe added');
 
     // Configure CORS - supports wildcard (*) or comma-separated list

@@ -47,12 +47,18 @@ export const LoginScreen: React.FC = () => {
     startLoading('Logging in...');
 
     try {
+      console.log('[LoginScreen] Attempting login to:', serverUrl);
+      console.log('[LoginScreen] Credentials:', { username, password: '***' });
+      
       const apiClient = getApiClient(serverUrl);
+      // Only send username and password - don't send serverUrl to server
       const response = await apiClient.login({
         username,
         password,
-        serverUrl,
       });
+      });
+
+      console.log('[LoginScreen] Login successful:', response);
 
       login(
         response.user,
@@ -70,7 +76,15 @@ export const LoginScreen: React.FC = () => {
 
       navigate('/');
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error?.message || err.message || 'Login failed';
+      console.error('[LoginScreen] Login error:', err);
+      console.error('[LoginScreen] Error response:', err.response?.data);
+      console.error('[LoginScreen] Error status:', err.response?.status);
+      
+      const errorMessage = err.response?.data?.error?.message 
+        || err.response?.data?.message 
+        || err.message 
+        || `Login failed (Status: ${err.response?.status || 'unknown'})`;
+      
       setError(errorMessage);
       addNotification({
         title: 'Login Failed',

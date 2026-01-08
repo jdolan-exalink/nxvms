@@ -37,28 +37,43 @@ export const DEFAULT_SERVER = SERVER_CONFIGS.find((s) => s.isDefault) || SERVER_
 /**
  * Get the appropriate server URL based on environment
  * Auto-detects if running from a different IP than localhost
+ * Supports both hardcoded IPs and dynamic detection
  */
 export function getDefaultServerUrl(): string {
-  // Check if manually configured in localStorage
+  // 1. Check if manually configured in localStorage
   const storedServerUrl = localStorage.getItem('nxvms_server_url');
   if (storedServerUrl) {
+    console.log('[NXvms] Using stored server URL:', storedServerUrl);
     return storedServerUrl;
   }
 
-  // Detect current window location and adapt server URL
+  // 2. Detect current window location and adapt server URL
   if (typeof window !== 'undefined' && window.location) {
     const currentHostname = window.location.hostname;
-    const currentPort = window.location.port;
     
     // If accessing from a non-localhost IP, use the same IP for backend
     if (currentHostname !== 'localhost' && currentHostname !== '127.0.0.1' && currentHostname !== '0.0.0.0') {
       // User is accessing from a different IP (e.g., 10.1.1.174)
-      // Connect backend to the same IP instead of localhost
-      return `http://${currentHostname}:3000/api/v1`;
+      const detectedUrl = `http://${currentHostname}:3000/api/v1`;
+      console.log('[NXvms] Auto-detected server URL from hostname:', detectedUrl);
+      return detectedUrl;
     }
   }
 
+  console.log('[NXvms] Using default server URL:', DEFAULT_SERVER.url);
   return DEFAULT_SERVER.url;
+}
+
+/**
+ * Get available servers (predefined + saved custom ones)
+ */
+export function getAvailableServers(): ServerConfig[] {
+  const customServersJson = localStorage.getItem('nxvms_custom_servers');
+  const customServers: ServerConfig[] = customServersJson 
+    ? JSON.parse(customServersJson) 
+    : [];
+  
+  return [...SERVER_CONFIGS, ...customServers];
 }
 
 /**
@@ -66,6 +81,27 @@ export function getDefaultServerUrl(): string {
  */
 export function setServerUrl(url: string): void {
   localStorage.setItem('nxvms_server_url', url);
+  console.log('[NXvms] Server URL set to:', url);
+}
+
+/**
+ * Add a custom server to the list (saved in localStorage)
+ */
+export function addCustomServer(name: string, url: string): void {
+  const customServersJson = localStorage.getItem('nxvms_custom_servers') || '[]';
+  const customServers: ServerConfig[] = JSON.parse(customServersJson);
+  
+  // Check if already exists
+  if (!customServers.find(s => s.url === url)) {
+    customServers.push({
+      name,
+      url,
+      description: `Custom server: ${url}`,
+      isDefault: false,
+    });
+    localStorage.setItem('nxvms_custom_servers', JSON.stringify(customServers));
+    console.log('[NXvms] Custom server added:', name, url);
+  }
 }
 
 /**

@@ -34,44 +34,8 @@ RUN apk add --no-cache curl
 # Copy built application from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create nginx config for SPA with proper caching and compression
-RUN cat > /etc/nginx/conf.d/default.conf << 'EOF'
-server {
-    listen 5173;
-    server_name _;
-    root /usr/share/nginx/html;
-    index index.html index.htm;
-
-    # Gzip compression
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
-    gzip_min_length 1024;
-
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "no-referrer-when-downgrade" always;
-
-    # SPA routing - serve index.html for all routes
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Cache static assets
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        access_log off;
-    }
-
-    # Don't cache HTML
-    location ~* \.html?$ {
-        expires -1;
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-}
-EOF
+# Copy nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Create non-root user for security
 RUN addgroup -g 101 -S nginx || true && \

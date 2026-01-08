@@ -19,9 +19,6 @@ COPY main ./main
 COPY preload ./preload
 COPY public ./public 2>/dev/null || true
 
-# Copy .version file for version injection
-COPY ../.version ./.version
-
 # Build the application
 RUN npm run build
 

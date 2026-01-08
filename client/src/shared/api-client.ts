@@ -106,7 +106,7 @@ export class ApiClient {
     // Use provided URL, auto-detected URL, or fallback to MOCK_SERVER_URL
     this.baseURL = baseURL || getDefaultServerUrl() || MOCK_SERVER_URL;
     this.client = axios.create({
-      baseURL,
+      baseURL: this.baseURL,
       timeout: API_TIMEOUT,
       headers: {
         'Content-Type': 'application/json',
@@ -223,23 +223,28 @@ export class ApiClient {
   // ============================================================================
 
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await this.client.post<any>(
-      '/auth/login',
-      credentials
-    );
+    try {
+      const response = await this.client.post<any>(
+        '/auth/login',
+        { username: credentials.username, password: credentials.password }
+      );
 
-    // Handle both response formats:
-    // 1. Wrapped: { success: true, data: { user, accessToken, refreshToken } }
-    // 2. Direct: { user, accessToken, refreshToken }
-    const loginData = response.data.data || response.data;
+      // Handle both response formats:
+      // 1. Wrapped: { success: true, data: { user, accessToken, refreshToken } }
+      // 2. Direct: { user, accessToken, refreshToken }
+      const loginData = response.data.data || response.data;
 
-    if (loginData && loginData.accessToken && loginData.refreshToken) {
-      const { accessToken, refreshToken } = loginData;
-      this.saveTokens(accessToken, refreshToken);
-      return loginData;
+      if (loginData && loginData.accessToken && loginData.refreshToken) {
+        const { accessToken, refreshToken } = loginData;
+        this.saveTokens(accessToken, refreshToken);
+        return loginData;
+      }
+
+      throw new Error(response.data.error?.message || 'Login failed - invalid response format');
+    } catch (error: any) {
+      console.error('[ApiClient] Login error:', error);
+      throw new Error(error.response?.data?.message || error.message || 'Login failed');
     }
-
-    throw new Error(response.data.error?.message || 'Login failed - invalid response format');
   }
 
   async logout(): Promise<void> {

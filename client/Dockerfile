@@ -17,7 +17,6 @@ RUN npm ci --legacy-peer-deps
 COPY src ./src
 COPY main ./main
 COPY preload ./preload
-COPY public ./public 2>/dev/null || true
 
 # Build the application
 RUN npm run build

@@ -29,17 +29,19 @@ export const LoginScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Initialize serverUrl with auto-detected value on component mount
+  // Initialize serverUrl with relative URL (proxied through Nginx)
   useEffect(() => {
-    const detectedUrl = getDefaultServerUrl();
-    setServerUrl(detectedUrl);
+    // Always use relative URL /api/v1 - it's proxied through Nginx on port 5173
+    // This avoids CORS issues and works from any IP address
+    setServerUrl('/api/v1');
+    console.log('[LoginScreen] 🔗 Using relative URL: /api/v1 (proxied through Nginx)');
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
 
-    if (!username || !password || !serverUrl) {
+    if (!username || !password) {
       setError('Please fill in all fields');
       return;
     }
@@ -47,17 +49,16 @@ export const LoginScreen: React.FC = () => {
     startLoading('Logging in...');
 
     try {
+      // Use relative URL /api/v1 - no need to specify serverUrl field
+      const apiClient = getApiClient('/api/v1');
       console.log('[LoginScreen] 🔑 Login attempt:', {
-        serverUrl,
+        serverUrl: '/api/v1',
         username,
         passwordLength: password.length,
-        baseURL: `${serverUrl}/auth/login`,
       });
-      
-      const apiClient = getApiClient(serverUrl);
       console.log('[LoginScreen] 📡 ApiClient created with baseURL:', apiClient.baseURL);
       
-      // Only send username and password - don't send serverUrl to server
+      // Only send username and password
       const response = await apiClient.login({
         username,
         password,
@@ -159,14 +160,16 @@ export const LoginScreen: React.FC = () => {
                 <Server className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
                 <input
                   id="server"
-                  type="url"
+                  type="text"
                   value={serverUrl}
                   onChange={(e) => setServerUrl(e.target.value)}
-                  placeholder="e.g., http://10.1.1.174:3000/api/v1"
-                  className="w-full pl-10 pr-4 py-3 bg-dark-900 border border-dark-700 rounded-lg text-white placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
-                  disabled={isLoading}
+                  placeholder="/api/v1"
+                  className="w-full pl-10 pr-4 py-3 bg-dark-900 border border-dark-700 rounded-lg text-white placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors disabled:opacity-50"
+                  disabled={true}
+                  title="Server URL is automatically proxied through Nginx"
                 />
               </div>
+              <p className="mt-1 text-xs text-dark-500">Proxied through Nginx (read-only)</p>
             </div>
 
             {/* Username */}

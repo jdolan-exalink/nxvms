@@ -10,8 +10,9 @@ async function bootstrap() {
     const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
     console.log('2. App created, setting up routes...');
 
-    app.setGlobalPrefix('api/v1');
-    console.log('3. Global prefix set');
+    // Note: Routes already have 'api/v1' prefix in controller decorators
+    // app.setGlobalPrefix('api/v1');  // COMMENTED OUT - routes already have it
+    console.log('3. Global prefix skipped (already in controllers)');
 
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
     console.log('4. Validation pipe added');

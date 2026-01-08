@@ -14,7 +14,7 @@ async function seedDatabase() {
     // Create default roles
     console.log('📝 Creating default roles...');
 
-    const adminRole = await roleRepository.findOne({ where: { name: 'Admin' } });
+    let adminRole = await roleRepository.findOne({ where: { name: 'Admin' } });
     if (!adminRole) {
       const admin = roleRepository.create({
         name: 'Admin',
@@ -31,20 +31,20 @@ async function seedDatabase() {
           'system:configure',
         ],
       });
-      await roleRepository.save(admin);
+      adminRole = await roleRepository.save(admin);
       console.log('  ✅ Admin role created');
     } else {
       console.log('  ⏭️  Admin role already exists');
     }
 
-    const viewerRole = await roleRepository.findOne({ where: { name: 'Viewer' } });
+    let viewerRole = await roleRepository.findOne({ where: { name: 'Viewer' } });
     if (!viewerRole) {
       const viewer = roleRepository.create({
         name: 'Viewer',
         description: 'Read-only access to camera feeds and recordings',
         permissions: ['camera:read', 'recording:view'],
       });
-      await roleRepository.save(viewer);
+      viewerRole = await roleRepository.save(viewer);
       console.log('  ✅ Viewer role created');
     } else {
       console.log('  ⏭️  Viewer role already exists');
@@ -61,7 +61,7 @@ async function seedDatabase() {
         email: 'admin@nxvms.local',
         passwordHash: hashedPassword,
         isActive: true,
-        roleId: adminRole?.id || '',
+        roleId: adminRole.id,
         displayName: 'Administrator',
       });
       await userRepository.save(admin);

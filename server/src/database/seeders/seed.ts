@@ -16,7 +16,8 @@ async function seedDatabase() {
 
     let adminRole = await roleRepository.findOne({ where: { name: 'Admin' } });
     if (!adminRole) {
-      const admin = roleRepository.create({
+      console.log('    Creating Admin role...');
+      const adminRoleData = roleRepository.create({
         name: 'Admin',
         description: 'Administrator with full system access',
         permissions: [
@@ -31,23 +32,24 @@ async function seedDatabase() {
           'system:configure',
         ],
       });
-      adminRole = await roleRepository.save(admin);
-      console.log('  ✅ Admin role created');
+      adminRole = await roleRepository.save(adminRoleData);
+      console.log(`    ✅ Admin role created with ID: ${adminRole.id}`);
     } else {
-      console.log('  ⏭️  Admin role already exists');
+      console.log(`  ⏭️  Admin role already exists with ID: ${adminRole.id}`);
     }
 
     let viewerRole = await roleRepository.findOne({ where: { name: 'Viewer' } });
     if (!viewerRole) {
-      const viewer = roleRepository.create({
+      console.log('    Creating Viewer role...');
+      const viewerRoleData = roleRepository.create({
         name: 'Viewer',
         description: 'Read-only access to camera feeds and recordings',
         permissions: ['camera:read', 'recording:view'],
       });
-      viewerRole = await roleRepository.save(viewer);
-      console.log('  ✅ Viewer role created');
+      viewerRole = await roleRepository.save(viewerRoleData);
+      console.log(`    ✅ Viewer role created with ID: ${viewerRole.id}`);
     } else {
-      console.log('  ⏭️  Viewer role already exists');
+      console.log(`  ⏭️  Viewer role already exists with ID: ${viewerRole.id}`);
     }
 
     // Create default admin user
@@ -55,8 +57,13 @@ async function seedDatabase() {
 
     const adminUser = await userRepository.findOne({ where: { email: 'admin@nxvms.local' } });
     if (!adminUser) {
+      if (!adminRole || !adminRole.id) {
+        throw new Error('Admin role must be created before admin user');
+      }
+      
+      console.log(`    Using admin role ID: ${adminRole.id}`);
       const hashedPassword = await bcrypt.hash('admin123', 10);
-      const admin = userRepository.create({
+      const adminUserData = userRepository.create({
         username: 'admin',
         email: 'admin@nxvms.local',
         passwordHash: hashedPassword,
@@ -64,7 +71,7 @@ async function seedDatabase() {
         roleId: adminRole.id,
         displayName: 'Administrator',
       });
-      await userRepository.save(admin);
+      await userRepository.save(adminUserData);
       console.log('  ✅ Admin user created (username: admin, password: admin123)');
       console.log('  ⚠️  Change password on first login!');
     } else {

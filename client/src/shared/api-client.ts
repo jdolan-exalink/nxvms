@@ -260,14 +260,35 @@ export class ApiClient {
 
       throw new Error(response.data.error?.message || 'Login failed - invalid response format');
     } catch (error: any) {
-      console.error('[ApiClient] ❌ Login error:', {
+      // Detailed error logging for network/CORS issues
+      const errorInfo = {
+        name: error.name,
         message: error.message,
+        code: error.code,
         status: error.response?.status,
         statusText: error.response?.statusText,
-        data: error.response?.data,
-        url: error.config?.url,
-        baseURL: error.config?.baseURL,
-      });
+        hasResponse: !!error.response,
+        responseData: error.response?.data,
+        config: error.config ? {
+          url: error.config.url,
+          method: error.config.method,
+          baseURL: error.config.baseURL,
+          headers: error.config.headers,
+        } : null,
+        isNetworkError: error.code === 'ERR_NETWORK' || error.message.includes('Network'),
+        isCorsError: error.message.includes('CORS') || error.code === 'ERR_CORS',
+      };
+      
+      console.error('[ApiClient] ❌ Login error (detailed):', errorInfo);
+      console.error('[ApiClient] Full error object:', error);
+      
+      // Determine error message
+      if (errorInfo.isCorsError) {
+        throw new Error('CORS error: Server rejected the request. Check if server has CORS enabled.');
+      } else if (errorInfo.isNetworkError) {
+        throw new Error(`Network error: Unable to reach ${loginUrl}. Check if server is running and accessible.`);
+      }
+      
       throw new Error(error.response?.data?.message || error.message || 'Login failed');
     }
   }

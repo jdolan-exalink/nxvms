@@ -127,22 +127,15 @@ export async function checkServerHealth(serverUrl: string): Promise<boolean> {
 }
 
 /**
- * Get list of available servers
- */
-export function getAvailableServers(): ServerConfig[] {
-  return SERVER_CONFIGS;
-}
-
-/**
  * Find server by URL
  */
 export function findServerByUrl(url: string): ServerConfig | undefined {
-  return SERVER_CONFIGS.find((s) => s.url === url);
+  return getAvailableServers().find((s) => s.url === url);
 }
 
 /**
  * Find server by name
  */
 export function findServerByName(name: string): ServerConfig | undefined {
-  return SERVER_CONFIGS.find((s) => s.name === name);
+  return getAvailableServers().find((s) => s.name === name);
 }

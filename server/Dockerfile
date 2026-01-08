@@ -36,6 +36,14 @@ RUN npm ci --omit=dev --legacy-peer-deps && \
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
 
+# Copy database seeder source (needed for ts-node to work)
+COPY src ./src
+COPY tsconfig.json ./
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh ./
+RUN chmod +x ./docker-entrypoint.sh
+
 # Create storage directory with proper permissions
 RUN mkdir -p /mnt/nxvms/storage/{chunks,hls,exports} && \
     chmod -R 755 /mnt/nxvms/storage
@@ -57,5 +65,5 @@ HEALTHCHECK --interval=15s --timeout=5s --retries=5 --start-period=60s \
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start the application
-CMD ["node", "dist/main.js"]
+# Start the application with our entrypoint script
+CMD ["./docker-entrypoint.sh"]

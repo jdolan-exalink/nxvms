@@ -10,7 +10,7 @@ import {
   Volume2,
   VolumeX,
   Maximize,
-  Camera,
+  Camera as CameraIcon,
   Download,
   Settings,
   X,
@@ -279,7 +279,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {/* Error Overlay */}
       {hasError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
-          <Camera className="w-12 h-12 text-red-500 mb-3" />
+          <CameraIcon className="w-12 h-12 text-red-500 mb-3" />
           <p className="text-white text-sm">Failed to load stream</p>
           <p className="text-dark-400 text-xs mt-1">{streamType.toUpperCase()}</p>
         </div>
@@ -375,7 +375,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               title="Take snapshot"
               disabled={!videoRef.current}
             >
-              <Camera className="w-5 h-5" />
+              <CameraIcon className="w-5 h-5" />
             </button>
 
             {/* Fullscreen */}

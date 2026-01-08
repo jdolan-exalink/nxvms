@@ -23,7 +23,8 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Install FFmpeg and dumb-init for proper signal handling
-RUN apk add --no-cache ffmpeg dumb-init
+# Also install curl for healthcheck
+RUN apk add --no-cache ffmpeg dumb-init curl
 
 # Copy package files
 COPY package*.json ./
@@ -35,18 +36,29 @@ RUN npm ci --omit=dev --legacy-peer-deps && \
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
 
-# Create storage directory
-RUN mkdir -p /mnt/nxvms/storage/{chunks,hls,exports}
+# Create storage directory with proper permissions
+RUN mkdir -p /mnt/nxvms/storage/{chunks,hls,exports} && \
+    chmod -R 755 /mnt/nxvms/storage
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app /mnt/nxvms/storage
+
+USER nodejs
 
 # Expose port
 EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
-  CMD node -e "require('http').get('http://localhost:3000/api/v1/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" || exit 1
+  CMD curl -f http://localhost:3000/api/v1/health || exit 1
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
+
+# Default command
+CMD ["node", "dist/main.js"]
 
 # Start the application
 CMD ["node", "dist/main.js"]

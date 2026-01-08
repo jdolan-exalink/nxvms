@@ -223,18 +223,23 @@ export class ApiClient {
   // ============================================================================
 
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await this.client.post<ApiResponse<LoginResponse>>(
+    const response = await this.client.post<any>(
       '/auth/login',
       credentials
     );
 
-    if (response.data.success && response.data.data) {
-      const { accessToken, refreshToken } = response.data.data;
+    // Handle both response formats:
+    // 1. Wrapped: { success: true, data: { user, accessToken, refreshToken } }
+    // 2. Direct: { user, accessToken, refreshToken }
+    const loginData = response.data.data || response.data;
+
+    if (loginData && loginData.accessToken && loginData.refreshToken) {
+      const { accessToken, refreshToken } = loginData;
       this.saveTokens(accessToken, refreshToken);
-      return response.data.data;
+      return loginData;
     }
 
-    throw new Error(response.data.error?.message || 'Login failed');
+    throw new Error(response.data.error?.message || 'Login failed - invalid response format');
   }
 
   async logout(): Promise<void> {

@@ -28,7 +28,7 @@ FROM nginx:alpine
 RUN apk add --no-cache curl
 
 # Copy built application from builder
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/dist/renderer /usr/share/nginx/html
 
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf

@@ -17,8 +17,12 @@ async function bootstrap() {
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
     console.log('4. Validation pipe added');
 
+    // Parse CORS origins - can be comma-separated list
+    const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+    const corsOrigins = corsOrigin.split(',').map(origin => origin.trim());
+    
     app.enableCors({
-      origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+      origin: corsOrigins.length > 1 ? corsOrigins : corsOrigins[0],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],

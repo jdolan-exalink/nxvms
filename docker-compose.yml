@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER:-nxvms}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-nxvms_password}
-      POSTGRES_DB: ${DB_NAME:-nxvms_db}
+      POSTGRES_DB: ${DB_NAME:-nxvms}
       # Logging
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:

@@ -3,8 +3,17 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
 
-// Read version from .version file
-const version = fs.readFileSync(path.resolve(__dirname, '../.version'), 'utf-8').trim();
+// Read version from .version file (optional, fallback to 0.1.0)
+let version = '0.1.0';
+try {
+  const versionPath = path.resolve(__dirname, '../.version');
+  if (fs.existsSync(versionPath)) {
+    version = fs.readFileSync(versionPath, 'utf-8').trim();
+  }
+} catch (error) {
+  // Ignore errors, use default version
+  console.warn('Could not read .version file, using default version: 0.1.0');
+}
 
 export default defineConfig({
   define: {

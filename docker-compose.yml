@@ -49,7 +49,7 @@ services:
       DB_PORT: ${DB_PORT:-5432}
       DB_USER: ${DB_USER:-nxvms}
       DB_PASSWORD: ${DB_PASSWORD:-nxvms_password}
-      DB_NAME: ${DB_NAME:-nxvms_db}
+      DB_NAME: ${DB_NAME:-nxvms}
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       STORAGE_PATH: /mnt/nxvms/storage
       FFMPEG_PATH: /usr/bin/ffmpeg

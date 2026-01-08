@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_USER: nxvms
       POSTGRES_PASSWORD: nxvms_password
-      POSTGRES_DB: nxvms_db
+      POSTGRES_DB: nxvms
     ports:
       - '5432:5432'
     volumes:
@@ -36,7 +36,7 @@ services:
       DB_PORT: 5432
       DB_USER: nxvms
       DB_PASSWORD: nxvms_password
-      DB_NAME: nxvms_db
+      DB_NAME: nxvms
       JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
       STORAGE_PATH: /mnt/nxvms/storage
       FFMPEG_PATH: ffmpeg

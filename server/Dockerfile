@@ -50,15 +50,12 @@ USER nodejs
 # Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
+# Health check - with start period to allow initialization
+HEALTHCHECK --interval=15s --timeout=5s --retries=5 --start-period=60s \
   CMD curl -f http://localhost:3000/api/v1/health || exit 1
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
-
-# Default command
-CMD ["node", "dist/main.js"]
 
 # Start the application
 CMD ["node", "dist/main.js"]

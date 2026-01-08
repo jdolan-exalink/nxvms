@@ -223,26 +223,51 @@ export class ApiClient {
   // ============================================================================
 
   async login(credentials: LoginRequest): Promise<LoginResponse> {
+    const loginUrl = `${this.baseURL}/auth/login`;
+    console.log('[ApiClient] 🔑 Login attempt:', {
+      url: loginUrl,
+      username: credentials.username,
+      baseURL: this.baseURL,
+      clientBaseURL: this.client.defaults.baseURL,
+    });
+
     try {
+      const loginData = { username: credentials.username, password: credentials.password };
+      console.log('[ApiClient] 📤 Sending login request to:', loginUrl);
+      
       const response = await this.client.post<any>(
         '/auth/login',
-        { username: credentials.username, password: credentials.password }
+        loginData
       );
+
+      console.log('[ApiClient] ✅ Login response received:', {
+        status: response.status,
+        hasData: !!response.data,
+        hasAccessToken: !!response.data?.accessToken || !!response.data?.data?.accessToken,
+      });
 
       // Handle both response formats:
       // 1. Wrapped: { success: true, data: { user, accessToken, refreshToken } }
       // 2. Direct: { user, accessToken, refreshToken }
-      const loginData = response.data.data || response.data;
+      const loginData_response = response.data.data || response.data;
 
-      if (loginData && loginData.accessToken && loginData.refreshToken) {
-        const { accessToken, refreshToken } = loginData;
+      if (loginData_response && loginData_response.accessToken && loginData_response.refreshToken) {
+        const { accessToken, refreshToken } = loginData_response;
+        console.log('[ApiClient] 💾 Saving tokens to localStorage');
         this.saveTokens(accessToken, refreshToken);
-        return loginData;
+        return loginData_response;
       }
 
       throw new Error(response.data.error?.message || 'Login failed - invalid response format');
     } catch (error: any) {
-      console.error('[ApiClient] Login error:', error);
+      console.error('[ApiClient] ❌ Login error:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+      });
       throw new Error(error.response?.data?.message || error.message || 'Login failed');
     }
   }

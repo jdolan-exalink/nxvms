@@ -47,17 +47,27 @@ export const LoginScreen: React.FC = () => {
     startLoading('Logging in...');
 
     try {
-      console.log('[LoginScreen] Attempting login to:', serverUrl);
-      console.log('[LoginScreen] Credentials:', { username, password: '***' });
+      console.log('[LoginScreen] 🔑 Login attempt:', {
+        serverUrl,
+        username,
+        passwordLength: password.length,
+        baseURL: `${serverUrl}/auth/login`,
+      });
       
       const apiClient = getApiClient(serverUrl);
+      console.log('[LoginScreen] 📡 ApiClient created with baseURL:', apiClient.baseURL);
+      
       // Only send username and password - don't send serverUrl to server
       const response = await apiClient.login({
         username,
         password,
       });
 
-      console.log('[LoginScreen] Login successful:', response);
+      console.log('[LoginScreen] ✅ Login successful:', {
+        userId: response.user.id,
+        username: response.user.username,
+        hasTokens: !!response.accessToken && !!response.refreshToken,
+      });
 
       login(
         response.user,
@@ -75,9 +85,12 @@ export const LoginScreen: React.FC = () => {
 
       navigate('/');
     } catch (err: any) {
-      console.error('[LoginScreen] Login error:', err);
-      console.error('[LoginScreen] Error response:', err.response?.data);
-      console.error('[LoginScreen] Error status:', err.response?.status);
+      console.error('[LoginScreen] ❌ Login error:', {
+        message: err.message,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+      });
       
       const errorMessage = err.response?.data?.error?.message 
         || err.response?.data?.message 

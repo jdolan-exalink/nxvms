@@ -10,7 +10,8 @@ export const ormConfig: TypeOrmModuleOptions = {
   database: process.env.DB_NAME || 'nxvms',
   entities: [path.join(__dirname, '..', '**', '*.entity{.ts,.js}')],
   migrations: [path.join(__dirname, '..', 'migrations', '*{.ts,.js}')],
-  migrationsRun: true,
-  synchronize: true,
-  logging: process.env.NODE_ENV === 'development',
+  migrationsRun: false,
+  synchronize: process.env.NODE_ENV === 'development' ? true : false,
+  logging: process.env.NODE_ENV === 'development' ? true : false,
 };
+

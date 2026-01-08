@@ -6,7 +6,9 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   try {
+    console.log('Starting NestJS application...');
     const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
+    console.log('✅ App created, setting up routes...');
 
     // Prefix all routes with /api/v1
     app.setGlobalPrefix('api/v1');
@@ -34,11 +36,16 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
 
     const port = parseInt(process.env.PORT || '3000', 10);
+    console.log(`Starting server on port ${port}...`);
     await app.listen(port, '0.0.0.0');
     console.log(`✅ Server running on http://0.0.0.0:${port}`);
     console.log(`📚 API Docs available at http://localhost:${port}/api/docs`);
   } catch (err) {
     console.error('❌ Bootstrap failed:', err);
+    if (err instanceof Error) {
+      console.error('Message:', err.message);
+      console.error('Stack:', err.stack);
+    }
     process.exit(1);
   }
 }

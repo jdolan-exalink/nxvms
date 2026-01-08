@@ -5,6 +5,7 @@
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { API_TIMEOUT, STORAGE_KEYS, MOCK_SERVER_URL } from './constants';
+import { getDefaultServerUrl } from './server-config';
 import {
   ApiResponse,
   User,
@@ -101,8 +102,9 @@ export class ApiClient {
   private refreshTokenValue: string | null = null;
   private refreshPromise: Promise<void> | null = null;
 
-  constructor(baseURL: string = MOCK_SERVER_URL) {
-    this.baseURL = baseURL;
+  constructor(baseURL?: string) {
+    // Use provided URL, auto-detected URL, or fallback to MOCK_SERVER_URL
+    this.baseURL = baseURL || getDefaultServerUrl() || MOCK_SERVER_URL;
     this.client = axios.create({
       baseURL,
       timeout: API_TIMEOUT,

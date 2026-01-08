@@ -2,12 +2,13 @@
 // LOGIN SCREEN
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, Server, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../core/store';
 import { useErrorStore, useLoadingStore } from '../core/store';
 import { getApiClient } from '../shared/api-client';
+import { getDefaultServerUrl } from '../shared/server-config';
 import { useNotificationsStore } from '../core/store';
 import { VersionBadge } from '../shared/version-badge';
 
@@ -24,9 +25,15 @@ export const LoginScreen: React.FC = () => {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [serverUrl, setServerUrl] = useState('http://localhost:3000/api/v1');
+  const [serverUrl, setServerUrl] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+
+  // Initialize serverUrl with auto-detected value on component mount
+  useEffect(() => {
+    const detectedUrl = getDefaultServerUrl();
+    setServerUrl(detectedUrl);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,7 +136,7 @@ export const LoginScreen: React.FC = () => {
                   type="url"
                   value={serverUrl}
                   onChange={(e) => setServerUrl(e.target.value)}
-                  placeholder="http://localhost:3000/api/v1"
+                  placeholder="e.g., http://10.1.1.174:3000/api/v1"
                   className="w-full pl-10 pr-4 py-3 bg-dark-900 border border-dark-700 rounded-lg text-white placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
                   disabled={isLoading}
                 />

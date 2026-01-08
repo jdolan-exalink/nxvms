@@ -24,29 +24,34 @@ async function bootstrap() {
     });
     console.log('5. CORS enabled');
 
-    try {
-      const config = new DocumentBuilder()
-        .setTitle('NXvms API')
-        .setDescription('The NXvms (NX-like Video Management System) API documentation')
-        .setVersion('1.0')
-        .addBearerAuth()
-        .build();
-      console.log('6. Swagger config built');
+    // Skip Swagger for now - it's causing issues
+    // TODO: Debug and re-enable Swagger module
+    if (process.env.ENABLE_SWAGGER === 'true') {
+      try {
+        const config = new DocumentBuilder()
+          .setTitle('NXvms API')
+          .setDescription('The NXvms (NX-like Video Management System) API documentation')
+          .setVersion('1.0')
+          .addBearerAuth()
+          .build();
+        console.log('6. Swagger config built');
 
-      const document = SwaggerModule.createDocument(app, config);
-      console.log('7. Swagger document created');
+        const document = SwaggerModule.createDocument(app, config);
+        console.log('7. Swagger document created');
 
-      SwaggerModule.setup('api/docs', app, document);
-      console.log('8. Swagger route set up');
-    } catch (swaggerErr) {
-      console.warn('⚠️  Swagger setup failed (non-blocking):', swaggerErr.message);
+        SwaggerModule.setup('api/docs', app, document);
+        console.log('8. Swagger route set up');
+      } catch (swaggerErr) {
+        console.warn('⚠️  Swagger setup failed (non-blocking):', swaggerErr.message);
+      }
+    } else {
+      console.log('6-8. Swagger disabled (ENABLE_SWAGGER env var not set)');
     }
 
     const port = parseInt(process.env.PORT || '3000', 10);
     console.log(`9. Starting server on port ${port}...`);
     await app.listen(port, '0.0.0.0');
     console.log(`✅ Server running on http://0.0.0.0:${port}`);
-    console.log(`📚 API Docs available at http://localhost:${port}/api/docs`);
   } catch (err) {
     console.error('❌ Bootstrap failed:', err);
     if (err instanceof Error) {

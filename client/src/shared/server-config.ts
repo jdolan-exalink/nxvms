@@ -14,8 +14,8 @@ export interface ServerConfig {
 export const SERVER_CONFIGS: ServerConfig[] = [
   {
     name: 'Real Backend (Local)',
-    url: 'http://localhost:3000/api/v1',
-    description: 'Connect to the real NestJS backend server running locally',
+    url: '/api/v1',
+    description: 'Connect to the real NestJS backend server via Nginx proxy',
     isDefault: true,
   },
   {
@@ -36,8 +36,8 @@ export const DEFAULT_SERVER = SERVER_CONFIGS.find((s) => s.isDefault) || SERVER_
 
 /**
  * Get the appropriate server URL based on environment
- * Auto-detects if running from a different IP than localhost
- * Supports both hardcoded IPs and dynamic detection
+ * Uses relative URLs (/api/v1) to proxy through Nginx
+ * This avoids CORS issues and port conflicts
  */
 export function getDefaultServerUrl(): string {
   // 1. Check if manually configured in localStorage
@@ -47,21 +47,10 @@ export function getDefaultServerUrl(): string {
     return storedServerUrl;
   }
 
-  // 2. Detect current window location and adapt server URL
-  if (typeof window !== 'undefined' && window.location) {
-    const currentHostname = window.location.hostname;
-    
-    // If accessing from a non-localhost IP, use the same IP for backend
-    if (currentHostname !== 'localhost' && currentHostname !== '127.0.0.1' && currentHostname !== '0.0.0.0') {
-      // User is accessing from a different IP (e.g., 10.1.1.174)
-      const detectedUrl = `http://${currentHostname}:3000/api/v1`;
-      console.log('[NXvms] Auto-detected server URL from hostname:', detectedUrl);
-      return detectedUrl;
-    }
-  }
-
-  console.log('[NXvms] Using default server URL:', DEFAULT_SERVER.url);
-  return DEFAULT_SERVER.url;
+  // 2. Use relative URL to proxy through Nginx (same protocol, host, and port as client)
+  // This avoids CORS issues and works with Nginx reverse proxy
+  console.log('[NXvms] Using relative URL: /api/v1 (proxied through Nginx)');
+  return '/api/v1';
 }
 
 /**

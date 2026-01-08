@@ -17,17 +17,27 @@ async function bootstrap() {
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
     console.log('4. Validation pipe added');
 
-    // Parse CORS origins - can be comma-separated list
-    const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
-    const corsOrigins = corsOrigin.split(',').map(origin => origin.trim());
-    
-    app.enableCors({
-      origin: corsOrigins.length > 1 ? corsOrigins : corsOrigins[0],
+    // Configure CORS - supports wildcard (*) or comma-separated list
+    const corsOriginEnv = process.env.CORS_ORIGIN || '*';
+    let corsConfig: any = {
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
-    });
-    console.log('5. CORS enabled');
+    };
+    
+    if (corsOriginEnv === '*') {
+      // Wildcard: accept all origins
+      corsConfig.origin = true;
+    } else if (corsOriginEnv.includes(',')) {
+      // Multiple origins: split and trim
+      corsConfig.origin = corsOriginEnv.split(',').map(o => o.trim());
+    } else {
+      // Single origin
+      corsConfig.origin = corsOriginEnv;
+    }
+    
+    app.enableCors(corsConfig);
+    console.log(`5. CORS enabled for: ${corsOriginEnv}`);
 
     // Skip Swagger for now - it's causing issues
     // TODO: Debug and re-enable Swagger module

@@ -5,8 +5,8 @@ export const configuration = () => ({
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     user: process.env.DB_USER || 'nxvms',
-    password: process.env.DB_PASSWORD || 'nxvms_dev',
-    name: process.env.DB_NAME || 'nxvms_db',
+    password: process.env.DB_PASSWORD || 'nxvms_password',
+    name: process.env.DB_NAME || 'nxvms',
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-key-change-in-production',

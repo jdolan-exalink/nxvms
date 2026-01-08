@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production
+/dist
+/build
+/out
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Misc
+.DS_Store
+.AppleDouble
+.LSOverride
+*.pem
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Electron
+**/dist/
+**/out/
+**/release/
+*.app
+*.dmg
+*.exe
+
+# IDE
+.vscode
+.idea
+*.sublime-project
+*.sublime-workspace
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Development
+.cache/
+.parcel-cache
+.next
+.nuxt
+dist
+.cache
+.vuepress/dist
+.serverless
+.fusebox
+.dynamodb
+.tern-port
+
+# TypeScript
+*.tsbuildinfo
+
+# Lock files (optional, depending on project preference)
+# package-lock.json
+# yarn.lock
+
+# Version
+.version

@@ -1,0 +1,281 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║        🔗 CLIENTE-SERVIDOR INTEGRATION - READY TO TEST                      ║
+║                                                                              ║
+║                     Cliente React ↔ Servidor NestJS                          ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 CHECKLIST - HAZ ESTO EN ORDEN
+═════════════════════════════════════════════════════════════════════════════
+
+✅ PASO 1: Verifica que el Servidor Backend está Corriendo
+
+   Terminal 1: En el directorio 'server'
+   ```bash
+   npm run start:dev
+   ```
+
+   Expected output:
+   ```
+   [Nest] 15164   - 01/15/2026, 2:30:17 PM     LOG [NestApplication] Fastify server listening on http://0.0.0.0:3000 🚀
+   ```
+
+   Verifica que está respondiendo:
+   ```bash
+   curl http://localhost:3000/api/v1/health
+   ```
+
+✅ PASO 2: Ejecuta las Pruebas de Integración
+
+   Terminal 2: En el directorio 'client'
+   ```bash
+   npm run test:integration
+   ```
+
+   Expected output:
+   ```
+   ✅ Backend Health Check
+   ✅ Database Connection
+   ✅ User Login
+   ✅ Get User Profile
+   ✅ List Cameras
+   ✅ Swagger API Documentation
+
+   🎉 All tests passed!
+   ```
+
+✅ PASO 3: Inicia el Frontend
+
+   Terminal 3: En el directorio 'client'
+   ```bash
+   npm run dev:server
+   ```
+
+   Expected output:
+   ```
+   VITE v4.5.0  ready in 450 ms
+   ➜  Local:   http://localhost:5173/
+   ```
+
+✅ PASO 4: Accede a la Aplicación
+
+   Abre tu navegador:
+   ```
+   http://localhost:5173
+   ```
+
+✅ PASO 5: Login con el Servidor Real
+
+   En la pantalla de login, ingresa:
+   
+   Server:   http://localhost:3000/api/v1
+   Username: admin
+   Password: admin123
+   
+   Haz clic en "Sign In"
+
+✅ PASO 6: Verifica que Funciona
+
+   - ✅ Se redirige al dashboard
+   - ✅ No hay errores CORS
+   - ✅ Token en localStorage
+   - ✅ Puedes navegar las páginas
+
+─────────────────────────────────────────────────────────────────────────────
+
+🌐 URLS PRINCIPALES
+═════════════════════════════════════════════════════════════════════════════
+
+Frontend:          http://localhost:5173
+Backend API:       http://localhost:3000/api/v1
+Swagger Docs:      http://localhost:3000/api/docs
+Database UI:       http://localhost:8080
+
+Test Credentials:
+  Username: admin
+  Password: admin123
+  Server:   http://localhost:3000/api/v1
+
+─────────────────────────────────────────────────────────────────────────────
+
+📊 ESTRUCTURA DE CARPETAS
+═════════════════════════════════════════════════════════════════════════════
+
+client/
+├── src/
+│   ├── integration-test.ts      ← Script de prueba
+│   ├── shared/
+│   │   ├── api-client.ts        ← Cliente API actualizado
+│   │   ├── server-config.ts     ← Configuración de servidores
+│   │   └── constants.ts         ← Constantes
+│   └── ...
+
+server/
+├── src/
+│   ├── auth/                    ← Endpoints de auth
+│   ├── cameras/                 ← Endpoints de cámaras
+│   ├── playback/                ← Endpoints de playback
+│   └── ...
+└── docker-compose.yml           ← Base de datos
+
+─────────────────────────────────────────────────────────────────────────────
+
+🚀 COMANDOS RÁPIDOS
+═════════════════════════════════════════════════════════════════════════════
+
+Iniciar TODO (desde el raíz):
+  
+  Terminal 1:
+  cd server && npm run start:dev
+
+  Terminal 2:
+  cd client && npm run dev:server
+
+  Terminal 3:
+  cd client && npm run test:integration
+
+
+Verificar Conexión:
+  
+  # Salud del backend
+  curl http://localhost:3000/api/v1/health
+
+  # Login de prueba
+  curl -X POST http://localhost:3000/api/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"username":"admin","password":"admin123"}'
+
+  # Lista de cámaras (necesita token)
+  curl http://localhost:3000/api/v1/cameras \
+    -H "Authorization: Bearer <TOKEN>"
+
+
+Prueba de Integración:
+  
+  cd client && npm run test:integration
+
+
+Logs en Tiempo Real:
+  
+  # Backend
+  docker-compose logs -f
+
+  # Frontend (en otra terminal)
+  tail -f nohup.out
+
+─────────────────────────────────────────────────────────────────────────────
+
+📚 DOCUMENTACIÓN DE REFERENCIA
+═════════════════════════════════════════════════════════════════════════════
+
+Para instrucciones detalladas:
+
+  Spanish Version:    CLIENTE-SERVIDOR-INTEGRATION.md
+  English Version:    CLIENT-SERVER-INTEGRATION.md
+  Full Guide:         README.md
+  Testing Checklist:  TESTING-CHECKPOINTS.md
+
+─────────────────────────────────────────────────────────────────────────────
+
+🎯 LO QUE PROBARÁS
+═════════════════════════════════════════════════════════════════════════════
+
+✅ Backend Health
+   - El servidor NestJS está corriendo
+   - Puerto 3000 está escuchando
+   - Base de datos PostgreSQL está conectada
+
+✅ Autenticación
+   - Login con admin/admin123 funciona
+   - JWT token se genera correctamente
+   - Token se almacena en localStorage
+
+✅ Comunicación Cliente-Servidor
+   - Requests HTTP funcionan
+   - CORS está configurado correctamente
+   - Responses se procesan correctamente
+
+✅ API Endpoints
+   - GET /auth/me - Perfil de usuario
+   - GET /cameras - Lista de cámaras
+   - GET /health - Salud del sistema
+   - ... y más (20+ endpoints)
+
+✅ Interfaz Frontend
+   - Todas las páginas cargan
+   - Navegación funciona
+   - No hay errores en consola
+
+─────────────────────────────────────────────────────────────────────────────
+
+🆘 TROUBLESHOOTING
+═════════════════════════════════════════════════════════════════════════════
+
+❌ Backend no responde
+  
+  → Verifica que está corriendo: npm run start:dev
+  → Verifica el puerto: curl http://localhost:3000/api/v1/health
+  → Mira los logs: docker-compose logs -f
+
+❌ Login falla
+
+  → Verifica URL correcta: http://localhost:3000/api/v1
+  → Verifica credenciales: admin / admin123
+  → Verifica usuario existe: npm run db:seed
+
+❌ Error CORS
+
+  → Verifica que backend está en http://localhost:3000
+  → Verifica que frontend está en http://localhost:5173
+  → Revisa configuración de CORS en backend
+
+❌ Errores en Consola (F12)
+
+  → Limpia caché del navegador (Ctrl+Shift+Delete)
+  → Recarga la página (Ctrl+F5)
+  → Abre DevTools (F12) para ver errores específicos
+
+─────────────────────────────────────────────────────────────────────────────
+
+🎉 SIGUIENTE PASO DESPUÉS DE PROBAR
+═════════════════════════════════════════════════════════════════════════════
+
+Si todo funciona:
+
+1. ✅ Documentar los resultados
+2. ✅ Crear cámaras de prueba vía API
+3. ✅ Probar funcionalidades avanzadas
+4. ✅ Testing de performance
+5. ✅ Preparar para producción
+
+─────────────────────────────────────────────────────────────────────────────
+
+✨ ESTADO ACTUAL
+═════════════════════════════════════════════════════════════════════════════
+
+Backend:     ✅ 100% Implementado y Corriendo
+Frontend:    ✅ 95% Implementado y Listo
+Database:    ✅ 100% Configurado y Seeded
+Testing:     ✅ Scripts de Integración Listos
+Docs:        ✅ Documentación Completa
+
+OVERALL:     ✅ READY FOR CLIENT-SERVER INTEGRATION TESTING
+
+═════════════════════════════════════════════════════════════════════════════
+
+🚀 ¿LISTO PARA EMPEZAR?
+
+Sigue estos pasos en orden:
+
+  1. Terminal 1: cd server && npm run start:dev
+  2. Terminal 2: cd client && npm run test:integration  
+  3. Terminal 3: cd client && npm run dev:server
+  4. Abre: http://localhost:5173
+  5. Login: admin / admin123
+
+¡Eso es! Ahora puedes testear la integración completa. 🎊
+
+═════════════════════════════════════════════════════════════════════════════
+
+Versión 0.1.0 | Enero 2026 | Status: ✅ Listo para Testing

@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  # React Frontend Client
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: nxvms-client-dev
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000/api/v1}
+    ports:
+      - '5173:5173'
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+networks:
+  default:
+    driver: bridge

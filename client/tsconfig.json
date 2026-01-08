@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Path aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@core/*": ["src/core/*"],
+      "@auth/*": ["src/auth/*"],
+      "@resources/*": ["src/resources/*"],
+      "@layout/*": ["src/layout/*"],
+      "@live-view/*": ["src/live-view/*"],
+      "@playback/*": ["src/playback/*"],
+      "@events/*": ["src/events/*"],
+      "@bookmarks/*": ["src/bookmarks/*"],
+      "@export/*": ["src/export/*"],
+      "@health/*": ["src/health/*"],
+      "@notifications/*": ["src/notifications/*"],
+      "@permissions/*": ["src/permissions/*"],
+      "@shared/*": ["src/shared/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

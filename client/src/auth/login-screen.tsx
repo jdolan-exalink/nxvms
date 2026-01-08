@@ -56,7 +56,6 @@ export const LoginScreen: React.FC = () => {
         username,
         password,
       });
-      });
 
       console.log('[LoginScreen] Login successful:', response);
 

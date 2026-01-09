@@ -7,6 +7,7 @@ export enum StreamType {
   WEBRTC = 'webrtc',
   HLS = 'hls',
   DASH = 'dash',
+  FRIGATE_MSE = 'frigate_mse',
 }
 
 @Entity('streams')

@@ -14,19 +14,13 @@ export interface ServerConfig {
 export const SERVER_CONFIGS: ServerConfig[] = [
   {
     name: 'Real Backend (Local)',
-    url: '/api/v1',
-    description: 'Connect to the real NestJS backend server via Nginx proxy',
+    url: '/api/v1/',
+    description: 'Connect to the real NestJS backend server',
     isDefault: true,
   },
   {
-    name: 'Mock Server',
-    url: 'http://localhost:3001/api/v1',
-    description: 'Connect to the mock server for development/testing',
-    isDefault: false,
-  },
-  {
     name: 'Production',
-    url: 'https://api.nxvms.com/api/v1',
+    url: 'https://api.nxvms.com/api/v1/',
     description: 'Connect to the production server',
     isDefault: false,
   },
@@ -49,8 +43,8 @@ export function getDefaultServerUrl(): string {
 
   // 2. Use relative URL to proxy through Nginx (same protocol, host, and port as client)
   // This avoids CORS issues and works with Nginx reverse proxy
-  console.log('[NXvms] Using relative URL: /api/v1 (proxied through Nginx)');
-  return '/api/v1';
+  console.log('[NXvms] Using relative URL: /api/v1/ (proxied through Nginx)');
+  return '/api/v1/';
 }
 
 /**

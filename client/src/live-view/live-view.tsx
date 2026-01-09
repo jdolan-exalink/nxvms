@@ -17,6 +17,9 @@ export const LiveView: React.FC = () => {
     Array(16).fill(null)
   );
 
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+  const [maximizedIndex, setMaximizedIndex] = useState<number | null>(null);
+
   // Initialize with some cameras if available and grid is empty
   useEffect(() => {
     if (cameras.length > 0 && gridCameras.every(c => c === null)) {
@@ -40,16 +43,42 @@ export const LiveView: React.FC = () => {
   };
 
   const handleCameraClick = (index: number) => {
-    // Optionally handle camera click (e.g. expand to 1x1)
-    console.log(`Camera clicked at grid index ${index}`);
+    const camera = gridCameras[index];
+    if (camera) {
+      setSelectedCameraId(camera.id);
+      console.log(`Camera selected: ${camera.name} at grid index ${index}`);
+    } else {
+      setSelectedCameraId(null);
+    }
+  };
+
+  const handleCameraDoubleClick = (index: number) => {
+    setMaximizedIndex(prev => (prev === index ? null : index));
+  };
+
+  const handleCameraRemove = (index: number) => {
+    setGridCameras(prev => {
+      const next = [...prev];
+      next[index] = null;
+      return next;
+    });
+    // If we removed the selected camera, deselect it
+    const removedCamera = gridCameras[index];
+    if (removedCamera && removedCamera.id === selectedCameraId) {
+      setSelectedCameraId(null);
+    }
   };
 
   return (
-    <div className="h-full w-full bg-dark-900 overflow-hidden">
+    <div className="h-full w-full bg-dark-900 overflow-hidden relative">
       <GridLayout
         cameras={gridCameras}
+        selectedCameraId={selectedCameraId}
+        maximizedIndex={maximizedIndex}
         onCameraClick={handleCameraClick}
+        onCameraDoubleClick={handleCameraDoubleClick}
         onCameraDrop={handleCameraDrop}
+        onCameraRemove={handleCameraRemove}
       />
     </div>
   );

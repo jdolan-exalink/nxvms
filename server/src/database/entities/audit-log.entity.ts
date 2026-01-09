@@ -16,6 +16,7 @@ export enum AuditAction {
   ROLE_UPDATE = 'role_update',
   BOOKMARK_CREATE = 'bookmark_create',
   BOOKMARK_DELETE = 'bookmark_delete',
+  RULE_TRIGGER = 'rule_trigger',
 }
 
 @Entity('audit_logs')

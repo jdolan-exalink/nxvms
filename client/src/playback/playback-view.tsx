@@ -8,7 +8,8 @@ import { useResourcesStore } from '../core/store';
 import { VideoPlayer } from '../live-view/video-player';
 import { Timeline } from './timeline';
 import { Camera, StreamType } from '../shared/types';
-import { Play, Pause, ChevronLeft, ChevronRight, FastForward, Rewind } from 'lucide-react';
+import { Play, Pause, ChevronLeft, ChevronRight, FastForward, Rewind, Loader2 } from 'lucide-react';
+import { getApiClient } from '../shared/api-client';
 
 export const PlaybackView: React.FC = () => {
   const { cameras, selectedCameraId } = useResourcesStore();
@@ -16,6 +17,8 @@ export const PlaybackView: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [streamUrl, setStreamUrl] = useState<string>('');
+  const [loading, setLoading] = useState(false);
 
   // Time window: last 24 hours
   const [timeWindow] = useState({
@@ -23,21 +26,43 @@ export const PlaybackView: React.FC = () => {
     end: new Date(),
   });
 
-  // Mock segments
-  const [segments] = useState([
-    { start: new Date(Date.now() - 12 * 60 * 60 * 1000), end: new Date(Date.now() - 10 * 60 * 60 * 1000), type: 'continuous' as const },
-    { start: new Date(Date.now() - 8 * 60 * 60 * 1000), end: new Date(Date.now() - 7 * 60 * 60 * 1000), type: 'motion' as const },
-    { start: new Date(Date.now() - 5 * 60 * 60 * 1000), end: new Date(Date.now() - 1 * 60 * 60 * 1000), type: 'continuous' as const },
-  ]);
+  // Segments
+  const [segments, setSegments] = useState<any[]>([]);
 
   useEffect(() => {
     if (selectedCameraId) {
       const cam = cameras.find(c => c.id === selectedCameraId);
-      if (cam) setSelectedCamera(cam);
+      if (cam) {
+        setSelectedCamera(cam);
+        loadPlaybackData(cam.id);
+      }
     } else if (cameras.length > 0 && !selectedCamera) {
       setSelectedCamera(cameras[0]);
+      loadPlaybackData(cameras[0].id);
     }
   }, [selectedCameraId, cameras]);
+
+  const loadPlaybackData = async (cameraId: string) => {
+    setLoading(true);
+    const apiClient = getApiClient();
+    try {
+      const [stream, timeline] = await Promise.all([
+        apiClient.getPlaybackStream(cameraId),
+        apiClient.getTimeline(cameraId, timeWindow.start.toISOString(), timeWindow.end.toISOString())
+      ]);
+      
+      let url = stream.playlistUrl;
+      if (url && !url.startsWith('http')) {
+        url = `${apiClient.getBaseURL()}${url}`;
+      }
+      setStreamUrl(url);
+      setSegments(timeline.segments || []);
+    } catch (err) {
+      console.error('Failed to load playback data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -65,13 +90,23 @@ export const PlaybackView: React.FC = () => {
     <div className="h-full flex flex-col bg-dark-900">
       {/* Video Area */}
       <div className="flex-1 min-h-0 p-4">
-        <div className="h-full max-w-5xl mx-auto rounded-lg overflow-hidden border border-dark-700 bg-black">
-          <VideoPlayer
-            camera={selectedCamera}
-            streamUrl={selectedCamera.streams[0]?.url || ''}
-            streamType={selectedCamera.streams[0]?.type || StreamType.HLS}
-            autoplay={false}
-          />
+        <div className="h-full max-w-5xl mx-auto rounded-lg overflow-hidden border border-dark-700 bg-black relative">
+          {loading ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+              <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
+            </div>
+          ) : streamUrl ? (
+            <VideoPlayer
+              camera={selectedCamera}
+              streamUrl={streamUrl}
+              streamType={StreamType.HLS}
+              autoplay={false}
+            />
+          ) : (
+            <div className="h-full flex items-center justify-center text-dark-500">
+              No playback stream available for this camera
+            </div>
+          )}
         </div>
       </div>
 

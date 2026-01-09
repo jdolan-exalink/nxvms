@@ -16,7 +16,8 @@ export class PlaybackController {
   @ApiOperation({ summary: 'Get HLS stream for camera' })
   @ApiResponse({ status: 200, description: 'HLS playlist URL and status' })
   async getStream(@Param('cameraId') cameraId: string) {
-    return this.playbackService.getHLSPlaylist(cameraId);
+    const result = await this.playbackService.getHLSPlaylist(cameraId);
+    return { success: true, data: result };
   }
 
   @Get('timeline/:cameraId')
@@ -27,11 +28,12 @@ export class PlaybackController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ): Promise<any> {
-    return this.playbackService.getTimeline(
+    const timeline = await this.playbackService.getTimeline(
       cameraId,
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
     );
+    return { success: true, data: timeline };
   }
 
   @Post('export')
@@ -41,7 +43,8 @@ export class PlaybackController {
     @Body() body: { cameraId: string; startTime: Date; endTime: Date; format: string },
     @CurrentUser() user: UserEntity,
   ) {
-    return this.playbackService.createExport(body.cameraId, body.startTime, body.endTime, body.format, user.id);
+    const exportJob = await this.playbackService.createExport(body.cameraId, body.startTime, body.endTime, body.format, user.id);
+    return { success: true, data: exportJob };
   }
 
   @Get('export/:exportId')

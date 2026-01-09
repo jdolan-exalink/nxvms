@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { UserEntity } from './user.entity';
 import { StreamEntity } from './stream.entity';
+import { DirectoryServerEntity } from './directory-server.entity';
 
 export enum CameraStatus {
   ONLINE = 'online',
@@ -23,8 +24,12 @@ export class CameraEntity {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  serverId: string; // Reference to external server
+  @Column({ type: 'uuid', nullable: true })
+  serverId: string;
+
+  @ManyToOne(() => DirectoryServerEntity, (server) => server.cameras, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'serverId' })
+  server: DirectoryServerEntity;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   onvifId: string;
@@ -41,11 +46,23 @@ export class CameraEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   model: string;
 
+  @Column({ type: 'varchar', length: 50, default: 'onvif' })
+  provider: string; // 'onvif', 'frigate', 'generic'
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  frigateCameraName: string;
+
   @Column({ type: 'jsonb', default: '{}' })
   capabilities: Record<string, any>;
 
   @Column({ type: 'boolean', default: true })
   isRecording: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  detectionEnabled: boolean;
+
+  @Column({ type: 'jsonb', default: '[]' })
+  zones: any[];
 
   @Column({ type: 'jsonb', default: '[]' })
   tags: string[];

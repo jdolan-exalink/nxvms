@@ -9,6 +9,7 @@ COPY tsconfig.json tsconfig.main.json tsconfig.node.json ./
 COPY vite.config.ts ./
 COPY tailwind.config.js postcss.config.js ./
 COPY index.html ./
+COPY .version ../.version 2>/dev/null || echo "0.1.1" > ../.version
 
 # Install dependencies
 RUN npm ci --legacy-peer-deps

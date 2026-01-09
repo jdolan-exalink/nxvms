@@ -21,6 +21,11 @@ export const DigitalZoom: React.FC<DigitalZoomProps> = ({
 }) => {
   const [zoom, setZoom] = useState(initialZoom);
 
+  // Sync internal state with prop if it changes from outside (e.g. mouse wheel)
+  React.useEffect(() => {
+    setZoom(initialZoom);
+  }, [initialZoom]);
+
   const handleZoomChange = useCallback(
     (newZoom: number) => {
       const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));

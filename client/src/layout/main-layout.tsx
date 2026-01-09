@@ -3,7 +3,7 @@
 // Main application layout with sidebar, header, and content area
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -19,10 +19,11 @@ import {
   Menu,
   X,
 } from 'lucide-react';
-import { useAuthStore } from '../core/store';
+import { useAuthStore, useResourcesStore } from '../core/store';
 import { ResourceTree } from '../resources/resource-tree';
 import { useViewModeStore } from '../core/store';
 import { useNotificationsStore } from '../core/store';
+import { getApiClient } from '../shared/api-client';
 import { GridLayout } from './grid-layout';
 import { VersionBadge } from '../shared/version-badge';
 
@@ -33,9 +34,33 @@ export const MainLayout: React.FC = () => {
   const logout = useAuthStore((state) => state.logout);
   const viewMode = useViewModeStore((state) => state.viewMode);
   const setViewMode = useViewModeStore((state) => state.setViewMode);
+  const setSites = useResourcesStore((state) => state.setSites);
+  const setCameras = useResourcesStore((state) => state.setCameras);
   const unreadCount = useNotificationsStore((state) => state.unreadCount);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+
+  // Load resource tree on mount
+  useEffect(() => {
+    const loadResources = async () => {
+      try {
+        const apiClient = getApiClient();
+        const sites = await apiClient.getResourceTree();
+        setSites(sites);
+        
+        // Also extract all cameras for the flat camera list in store
+        const allCameras = sites.flatMap(site => 
+          site.servers.flatMap(server => server.cameras)
+        );
+        setCameras(allCameras);
+        console.log('[MainLayout] 🌲 Resource tree loaded:', sites.length, 'sites,', allCameras.length, 'cameras');
+      } catch (err) {
+        console.error('[MainLayout] ❌ Failed to load resource tree:', err);
+      }
+    };
+
+    loadResources();
+  }, [setSites, setCameras]);
 
   const handleLogout = () => {
     logout();

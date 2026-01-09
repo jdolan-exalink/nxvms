@@ -43,9 +43,8 @@ async function bootstrap() {
     app.enableCors(corsConfig);
     console.log(`5. CORS enabled for: ${corsOriginEnv}`);
 
-    // Skip Swagger for now - it's causing issues
-    // TODO: Debug and re-enable Swagger module
-    if (process.env.ENABLE_SWAGGER === 'true') {
+    // Enable Swagger
+    if (process.env.ENABLE_SWAGGER !== 'false') {
       try {
         const config = new DocumentBuilder()
           .setTitle('NXvms API')
@@ -59,12 +58,12 @@ async function bootstrap() {
         console.log('7. Swagger document created');
 
         SwaggerModule.setup('api/docs', app, document);
-        console.log('8. Swagger route set up');
+        console.log('8. Swagger route set up at /api/docs');
       } catch (swaggerErr) {
         console.warn('⚠️  Swagger setup failed (non-blocking):', swaggerErr.message);
       }
     } else {
-      console.log('6-8. Swagger disabled (ENABLE_SWAGGER env var not set)');
+      console.log('6-8. Swagger disabled via environment variable');
     }
 
     const port = parseInt(process.env.PORT || '3000', 10);

@@ -7,8 +7,10 @@ export const VersionBadge: React.FC<{ className?: string }> = ({ className = '' 
   const version = getVersionBadge();
 
   return (
-    <div className={`flex items-center justify-center text-xs font-semibold text-gray-500 dark:text-gray-400 ${className}`}>
-      {version}
+    <div className={`flex items-center justify-center ${className}`}>
+      <span className="px-2 py-0.5 bg-dark-700/50 backdrop-blur-sm border border-white/10 rounded-full text-[10px] font-mono font-medium text-dark-300 tracking-tight">
+        {version}
+      </span>
     </div>
   );
 };

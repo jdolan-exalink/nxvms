@@ -11,6 +11,15 @@ import { CamerasModule } from './cameras/cameras.module';
 import { HealthModule } from './health/health.module';
 import { PlaybackModule } from './playback/playback.module';
 import { ormConfig } from './database/orm.config';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { EventsModule } from './events/events.module';
+import { SharedModule } from './shared/shared.module';
+import { RulesModule } from './rules/rules.module';
+import { SystemModule } from './system/system.module';
+import { ServersModule } from './servers/servers.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import * as path from 'path';
 
 @Module({
   imports: [
@@ -18,6 +27,17 @@ import { ormConfig } from './database/orm.config';
       load: [configuration],
       isGlobal: true,
     }),
+    ServeStaticModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => [
+        {
+          rootPath: configService.get<string>('storage.hlsPath'),
+          serveRoot: '/hls',
+        },
+      ],
+    }),
+    EventEmitterModule.forRoot(),
+    SharedModule,
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
@@ -44,6 +64,11 @@ import { ormConfig } from './database/orm.config';
     CamerasModule,
     HealthModule,
     PlaybackModule,
+    IntegrationsModule,
+    EventsModule,
+    RulesModule,
+    SystemModule,
+    ServersModule,
   ],
   controllers: [],
   providers: [],

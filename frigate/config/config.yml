@@ -1,0 +1,24 @@
+mqtt:
+  host: mqtt
+  port: 1883
+  # user: ${MQTT_USER}
+  # password: ${MQTT_PASSWORD}
+
+cameras:
+  dummy_camera: # Required to start
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:554/live
+          roles:
+            - detect
+    detect:
+      enabled: false
+
+detectors:
+  cpu1:
+    type: cpu
+
+version: 0.16-0
+detect:
+  enabled: true

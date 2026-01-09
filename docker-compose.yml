@@ -55,6 +55,10 @@ services:
       FFMPEG_PATH: /usr/bin/ffmpeg
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Integrations
+      MQTT_HOST: mqtt
+      MQTT_PORT: 1883
+      FRIGATE_URL: http://frigate:5000
     ports:
       - '${SERVER_PORT:-3000}:3000'
     depends_on:
@@ -102,6 +106,47 @@ services:
     tmpfs:
       - /var/cache/nginx
       - /var/run
+
+  # MQTT Broker (Mosquitto)
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: nxvms-mqtt
+    ports:
+      - '1883:1883'
+      - '9001:9001'
+    volumes:
+      - ./mqtt/config:/mosquitto/config
+      - ./mqtt/data:/mosquitto/data
+      - ./mqtt/log:/mosquitto/log
+    networks:
+      - nxvms_network
+    restart: unless-stopped
+
+  # Frigate NVR
+  frigate:
+    container_name: frigate
+    privileged: true
+    restart: unless-stopped
+    image: ghcr.io/blakeblackshear/frigate:stable
+    shm_size: "64mb"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./frigate/config:/config
+      - ./frigate/storage:/media/frigate
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    ports:
+      - "5000:5000"
+      - "8554:8554"
+    environment:
+      FRIGATE_RTSP_PASSWORD: "password"
+    networks:
+      - nxvms_network
+    depends_on:
+      mqtt:
+        condition: service_started
 
 volumes:
   postgres_data:

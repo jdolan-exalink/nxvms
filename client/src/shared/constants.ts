@@ -215,5 +215,5 @@ export const RATE_LIMITS = {
 // MOCK DATA
 // ============================================================================
 
-export const MOCK_SERVER_URL = 'http://localhost:3000/api/v1';
+export const MOCK_SERVER_URL = 'http://localhost:3000/api/v1/';
 export const MOCK_WS_URL = 'ws://localhost:3000/ws';

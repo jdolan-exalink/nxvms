@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Onvif } from 'onvif';
+import { Injectable, Logger } from "@nestjs/common";
+import * as onvif from "onvif";
 
 @Injectable()
 export class OnvifService {
@@ -9,76 +9,92 @@ export class OnvifService {
     return new Promise((resolve) => {
       const cameras: any[] = [];
 
-      const onvif = new Onvif({
-        discoveryTimeout: timeout,
-      });
-
-      onvif.on('device', (cam) => {
+      this.logger.log("Starting ONVIF discovery...");
+      
+      onvif.Discovery.on("device", (cam) => {
         this.logger.log(`Discovered camera: ${cam.hostname}`);
         cameras.push({
           hostname: cam.hostname,
           port: cam.port,
-          username: cam.username,
-          password: cam.password,
+          address: cam.address,
+          service: cam.service,
+          device: cam.device
         });
       });
 
-      onvif.on('complete', () => {
+      onvif.Discovery.probe({ timeout }, (err) => {
+        if (err) {
+          this.logger.error("Discovery error:", err);
+        }
         this.logger.log(`Discovery completed. Found ${cameras.length} cameras.`);
         resolve(cameras);
       });
-
-      onvif.start();
     });
   }
 
+  async probeSpecificIp(ip: string, port = 80, timeout = 3000): Promise<any | null> {
+    return new Promise((resolve) => {
+      this.logger.log(`Probing specific IP: ${ip}:${port}`);
+      
+      const cam = new onvif.Cam({
+        hostname: ip,
+        port: port,
+        timeout: timeout
+      }, (err) => {
+        if (err) {
+          this.logger.error(`Failed to probe ${ip}: ${err.message}`);
+          resolve(null);
+        } else {
+          this.logger.log(`Successfully reached ONVIF device at ${ip}`);
+          resolve({
+            hostname: ip,
+            port: port,
+            device: cam.deviceInformation
+          });
+        }
+      });
+    });
+  }
+
+
   async getCameraProfiles(hostname: string, username?: string, password?: string): Promise<any[]> {
     try {
-      const onvif = new Onvif({
+      const cam = new onvif.Cam({
         hostname,
         username,
         password,
       });
 
-      const profiles = await new Promise<any[]>((resolve) => {
-        onvif.GetProfiles((err, profiles) => {
-          resolve(err ? [] : (Array.isArray(profiles) ? profiles : []));
+      const profiles = await new Promise<any[]>((resolve, reject) => {
+        cam.getProfiles((err, profiles) => {
+          if (err) return reject(err);
+          resolve(Array.isArray(profiles) ? profiles : []);
         });
       });
 
       return profiles || [];
     } catch (error) {
-      this.logger.error(`Error getting profiles: ${error.message}`);
+      this.logger.error(`Failed to get profiles for ${hostname}:`, error);
       return [];
     }
   }
 
-  async getStreamUri(
-    hostname: string,
-    profileToken: string,
-    username?: string,
-    password?: string,
-  ): Promise<string | null> {
+  async getStreamUri(hostname: string, profileToken: string, username?: string, password?: string): Promise<string | null> {
     try {
-      const onvif = new Onvif({
+      const cam = new onvif.Cam({
         hostname,
         username,
         password,
       });
 
-      const streamUri = await new Promise<string | null>((resolve) => {
-        onvif.GetStreamUri({ profileToken }, (err, stream) => {
-          if (err) {
-            resolve(null);
-          } else {
-            resolve(stream?.uri || null);
-          }
+      return await new Promise((resolve, reject) => {
+        cam.getStreamUri({ protocol: "RTSP", profileToken }, (err, stream) => {
+          if (err) return reject(err);
+          resolve(stream.uri);
         });
       });
-
-      return streamUri;
     } catch (error) {
-      this.logger.error(`Error getting stream URI: ${error.message}`);
+      this.logger.error(`Failed to get stream URI for ${hostname}:`, error);
       return null;
     }
   }

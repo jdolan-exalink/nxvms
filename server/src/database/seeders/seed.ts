@@ -1,5 +1,5 @@
 import { AppDataSource } from '../data-source';
-import { UserEntity, RoleEntity } from '../entities';
+import { UserEntity, RoleEntity, CameraEntity, RuleEntity, DirectoryServerEntity, ServerType, ServerStatus } from '../entities';
 import * as bcrypt from 'bcrypt';
 
 async function seedDatabase() {
@@ -9,6 +9,9 @@ async function seedDatabase() {
 
   const roleRepository = AppDataSource.getRepository(RoleEntity);
   const userRepository = AppDataSource.getRepository(UserEntity);
+  const serverRepository = AppDataSource.getRepository(DirectoryServerEntity);
+  const cameraRepository = AppDataSource.getRepository(CameraEntity);
+  const ruleRepository = AppDataSource.getRepository(RuleEntity);
 
   try {
     // Create default roles
@@ -76,6 +79,24 @@ async function seedDatabase() {
       console.log('  ⚠️  Change password on first login!');
     } else {
       console.log('  ⏭️  Admin user already exists');
+    }
+
+    // Create default local server
+    console.log('\n🖥️  Creating default local server...');
+    let localServer = await serverRepository.findOne({ where: { name: 'Local Server' } });
+    if (!localServer) {
+      localServer = serverRepository.create({
+        name: 'Local Server',
+        description: 'Default recording and management server',
+        url: 'http://localhost:3000',
+        type: ServerType.NX_VM,
+        status: ServerStatus.ONLINE,
+        location: 'In-app'
+      });
+      await serverRepository.save(localServer);
+      console.log('  ✅ Local server created');
+    } else {
+      console.log('  ⏭️  Local server already exists');
     }
 
     console.log('\n✅ Database seeding completed!\n');

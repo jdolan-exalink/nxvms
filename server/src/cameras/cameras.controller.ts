@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, Query, Logger } from '@nestjs/common';
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 import { CurrentUser } from '@/auth/decorators/current-user.decorator';
 import { UserEntity } from '@/database/entities';
@@ -11,6 +11,8 @@ import { ApiBearerAuth, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagg
 @UseGuards(JwtAuthGuard)
 @Controller('api/v1/cameras')
 export class CamerasController {
+  private readonly logger = new Logger(CamerasController.name);
+
   constructor(private camerasService: CamerasService) {}
 
   @Post()
@@ -20,21 +22,117 @@ export class CamerasController {
     @Body() createCameraDto: CreateCameraDto,
     @CurrentUser() user: UserEntity,
   ) {
-    // TODO: Extract serverId from context
-    return this.camerasService.createCamera(createCameraDto, user.id, 'server-1');
+    const camera = await this.camerasService.createCamera(createCameraDto, user.id, createCameraDto.serverId);
+    return { success: true, data: camera };
+  }
+
+  @Post('import/frigate/:serverId')
+  @ApiOperation({ summary: 'Import cameras from a Frigate server' })
+  async importFrigate(
+    @Param('serverId') serverId: string,
+    @CurrentUser() user: UserEntity,
+  ) {
+    this.logger.log(`Received import request for server: ${serverId} from user: ${user.id}`);
+    const cameras = await this.camerasService.importFromFrigate(serverId, user.id);
+    this.logger.log(`Import completed. Total cameras: ${cameras.length}`);
+    return { success: true, data: cameras };
+  }
+
+  @Post('connect-onvif')
+  @ApiOperation({ summary: 'Connect and add an ONVIF camera' })
+  async connectOnvif(
+    @Body() dto: { address: string; username?: string; password?: string; serverId?: string },
+    @CurrentUser() user: UserEntity,
+  ) {
+    const camera = await this.camerasService.connectOnvif(dto, user.id);
+    return { success: true, data: camera };
+  }
+
+  @Get('discover')
+  @ApiOperation({ summary: 'Discover ONVIF cameras on the network' })
+  async discoverCameras(@Query('serverId') serverId?: string) {
+    // We pass serverId to use its IP as a discovery hint
+    const cameras = await this.camerasService.discoverCameras(serverId);
+    return { success: true, data: cameras };
   }
 
   @Get()
   @ApiOperation({ summary: 'List all cameras' })
   @ApiResponse({ status: 200, description: 'List of cameras' })
-  async getCameras() {
-    return this.camerasService.getAllCameras('server-1');
+  async getCameras(@Query('serverId') serverId?: string) {
+    const cameras = await this.camerasService.getAllCameras(serverId);
+    return { success: true, data: cameras };
+  }
+
+  @Get('tree')
+  @ApiOperation({ summary: 'Get resource tree for the client' })
+  async getResourceTree() {
+    const servers = await this.camerasService.getAllServers();
+    const cameras = await this.camerasService.getAllCameras();
+    
+    // Group cameras by serverId
+    const serversWithCameras = servers.map(server => {
+      let host = 'localhost';
+      let port = 80;
+      try {
+        const url = new URL(server.url.includes('://') ? server.url : `http://${server.url}`);
+        host = url.hostname;
+        port = parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80);
+      } catch (e) {
+        console.error(`Invalid server URL: ${server.url}`);
+      }
+
+      return {
+        id: server.id,
+        name: server.name,
+        host,
+        port,
+        status: server.status === 'online' ? 'online' : 'offline',
+        capabilities: [server.type === 'frigate' ? 'frigate' : 'generic', 'onvif', 'rtsp'],
+        cameras: cameras
+          .filter(cam => cam.serverId === server.id)
+          .map(cam => ({
+            ...cam,
+            __typename: 'Camera',
+            status: cam.status.toLowerCase(),
+          })),
+      };
+    });
+
+    // Add cameras without serverId to the first server or a "Default" one
+    const orphanedCameras = cameras
+      .filter(cam => !cam.serverId)
+      .map(cam => ({
+        ...cam,
+        __typename: 'Camera',
+        status: cam.status.toLowerCase(),
+      }));
+
+    if (orphanedCameras.length > 0 && serversWithCameras.length > 0) {
+      serversWithCameras[0].cameras.push(...orphanedCameras);
+    }
+
+    return {
+      success: true,
+      data: {
+        sites: [
+          {
+            id: 'site-1',
+            name: 'Main Site',
+            description: 'Your security infrastructure',
+            servers: serversWithCameras,
+            groups: []
+          }
+        ]
+      }
+    };
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get camera by ID' })
   async getCamera(@Param('id') cameraId: string) {
-    return this.camerasService.getCameraById(cameraId);
+    const camera = await this.camerasService.getCameraById(cameraId);
+    return { success: true, data: camera };
   }
 
   @Put(':id')
@@ -44,7 +142,8 @@ export class CamerasController {
     @Body() updateCameraDto: UpdateCameraDto,
     @CurrentUser() user: UserEntity,
   ) {
-    return this.camerasService.updateCamera(cameraId, updateCameraDto, user.id);
+    const camera = await this.camerasService.updateCamera(cameraId, updateCameraDto, user.id);
+    return { success: true, data: camera };
   }
 
   @Delete(':id')
@@ -68,9 +167,17 @@ export class CamerasController {
     return { success: true };
   }
 
-  @Get('discover')
-  @ApiOperation({ summary: 'Discover cameras via ONVIF' })
-  async discoverCameras() {
-    return this.camerasService.discoverCameras();
+  @Post(':id/detection/enable')
+  @ApiOperation({ summary: 'Enable object detection' })
+  async enableDetection(@Param('id') cameraId: string) {
+    const result = await this.camerasService.setDetection(cameraId, true);
+    return { success: true, data: result };
+  }
+
+  @Post(':id/detection/disable')
+  @ApiOperation({ summary: 'Disable object detection' })
+  async disableDetection(@Param('id') cameraId: string) {
+    const result = await this.camerasService.setDetection(cameraId, false);
+    return { success: true, data: result };
   }
 }

@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
-import { RecordingSegmentEntity, VideoExportEntity, StreamEntity, CameraEntity, RecordingType } from '@/database/entities';
+import { RecordingSegmentEntity, VideoExportEntity, StreamEntity, CameraEntity, RecordingType, DirectoryServerEntity } from '@/database/entities';
 import { FFmpegService } from '@/shared/services';
+import { FrigateService } from '@/integrations/frigate/frigate.service';
 
 export interface TimelineSegment {
   id: string;
@@ -32,27 +33,39 @@ export class PlaybackService {
     private streamRepository: Repository<StreamEntity>,
     @InjectRepository(CameraEntity)
     private cameraRepository: Repository<CameraEntity>,
+    @InjectRepository(DirectoryServerEntity)
+    private serverRepository: Repository<DirectoryServerEntity>,
     private ffmpegService: FFmpegService,
+    private frigateService: FrigateService,
   ) {}
 
   /**
    * Get HLS playlist for a camera stream
    */
-  async getHLSPlaylist(cameraId: string): Promise<{ playlistUrl: string; status: string }> {
+  async getHLSPlaylist(cameraId: string): Promise<{ playlistUrl: string; status: string; streamType?: string }> {
     const camera = await this.cameraRepository.findOne({ where: { id: cameraId } });
 
     if (!camera) {
       throw new NotFoundException('Camera not found');
     }
 
-    if (camera.status !== 'online') {
+    if (camera.provider === 'frigate' && camera.frigateCameraName) {
+      const serverId = camera.serverId || 'local';
+      return {
+        playlistUrl: `/api/v1/frigate/proxy/${serverId}/api/${camera.frigateCameraName}/recordings/playlist.m3u8`,
+        status: 'ready',
+        streamType: 'hls'
+      };
+    }
+
+    if (camera.status === 'offline') {
       throw new BadRequestException(`Camera is ${camera.status}, cannot stream`);
     }
 
-    // Return HLS playlist path
     return {
       playlistUrl: `/hls/${cameraId}/stream.m3u8`,
       status: 'ready',
+      streamType: 'hls'
     };
   }
 
@@ -68,6 +81,43 @@ export class PlaybackService {
 
     if (!camera) {
       throw new NotFoundException('Camera not found');
+    }
+
+    if (camera.provider === 'frigate' && camera.frigateCameraName) {
+      // For Frigate, we return event segments as a simple way to show activity
+      // In a more advanced version, we'd query the recordings summary API
+      const server = await this.serverRepository.findOneBy({ id: camera.serverId });
+      if (server) {
+        try {
+          const params: any = {
+            camera: camera.frigateCameraName,
+            limit: 100,
+          };
+          if (startDate) params.after = Math.floor(startDate.getTime() / 1000);
+          if (endDate) params.before = Math.floor(endDate.getTime() / 1000);
+
+          const client = this.frigateService.getClient(server.url);
+          const response = await client.get('/api/events', { params });
+          const events = response.data;
+
+          return {
+            segments: events.map((e: any) => ({
+              id: e.id,
+              startTime: new Date(e.start_time * 1000),
+              endTime: e.end_time ? new Date(e.end_time * 1000) : new Date(),
+              type: 'motion',
+              duration: e.end_time ? (e.end_time - e.start_time) : 0,
+              hasMotion: true,
+            })),
+            total: events.length,
+            cameraId,
+            startDate,
+            endDate,
+          };
+        } catch (e) {
+          // Fallback to empty if Frigate is unreachable
+        }
+      }
     }
 
     // Get streams for this camera

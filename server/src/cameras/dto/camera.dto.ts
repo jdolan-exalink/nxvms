@@ -28,6 +28,21 @@ export class CreateCameraDto {
   @ApiPropertyOptional()
   @IsOptional()
   location?: { latitude?: number; longitude?: number; address?: string };
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  serverId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  provider?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  frigateCameraName?: string;
 }
 
 export class UpdateCameraDto {

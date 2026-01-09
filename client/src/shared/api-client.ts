@@ -152,7 +152,7 @@ export class ApiClient {
         }
 
         const response = await this.client.post<ApiResponse<RefreshTokenResponse>>(
-          '/auth/refresh',
+          'auth/refresh',
           { refreshToken: this.refreshTokenValue }
         );
 
@@ -236,7 +236,7 @@ export class ApiClient {
       console.log('[ApiClient] 📤 Sending login request to:', loginUrl);
       
       const response = await this.client.post<any>(
-        '/auth/login',
+        'auth/login',
         loginData
       );
 
@@ -295,7 +295,7 @@ export class ApiClient {
 
   async logout(): Promise<void> {
     try {
-      await this.client.post('/auth/logout');
+      await this.client.post('auth/logout');
     } finally {
       this.clearTokens();
     }
@@ -303,7 +303,7 @@ export class ApiClient {
 
   async getCurrentUser(): Promise<{ user: User; server: ServerInfo }> {
     const response = await this.client.get<ApiResponse<{ user: User; server: ServerInfo }>>(
-      '/auth/me'
+      'auth/me'
     );
 
     if (response.data.success && response.data.data) {
@@ -319,44 +319,54 @@ export class ApiClient {
 
   async getResourceTree(): Promise<Site[]> {
     const response = await this.client.get<ApiResponse<{ sites: Site[] }>>(
-      '/resources/tree'
+      'cameras/tree'
     );
 
     if (response.data.success && response.data.data) {
       return response.data.data.sites;
     }
 
+    // Fallback if not wrapped
+    const data = response.data as any;
+    if (data.sites) return data.sites;
+
     throw new Error(response.data.error?.message || 'Failed to get resource tree');
   }
 
   async getCamera(cameraId: string): Promise<Camera> {
     const response = await this.client.get<ApiResponse<{ camera: Camera }>>(
-      `/resources/cameras/${cameraId}`
+      `cameras/${cameraId}`
     );
 
     if (response.data.success && response.data.data) {
       return response.data.data.camera;
     }
+
+    // Fallback if not wrapped
+    if (response.data) return response.data as any;
 
     throw new Error(response.data.error?.message || 'Failed to get camera');
   }
 
   async createCamera(data: any): Promise<Camera> {
     const response = await this.client.post<ApiResponse<{ camera: Camera }>>(
-      '/resources/cameras',
+      'cameras',
       data
     );
 
     if (response.data.success && response.data.data) {
       return response.data.data.camera;
     }
+
+    // Fallback if not wrapped
+    if (response.data) return response.data as any;
 
     throw new Error(response.data.error?.message || 'Failed to create camera');
   }
 
   async updateCamera(cameraId: string, data: any): Promise<Camera> {
     const response = await this.client.put<ApiResponse<{ camera: Camera }>>(
-      `/resources/cameras/${cameraId}`,
+      `cameras/${cameraId}`,
       data
     );
 
@@ -364,28 +374,34 @@ export class ApiClient {
       return response.data.data.camera;
     }
 
+    // Fallback if not wrapped
+    if (response.data) return response.data as any;
+
     throw new Error(response.data.error?.message || 'Failed to update camera');
   }
 
   async deleteCamera(cameraId: string): Promise<void> {
     const response = await this.client.delete<ApiResponse<{}>>(
-      `/resources/cameras/${cameraId}`
+      `cameras/${cameraId}`
     );
 
-    if (!response.data.success) {
+    if (response.data && (response.data.success === false)) {
       throw new Error(response.data.error?.message || 'Failed to delete camera');
     }
   }
 
   async discoverOnvifCameras(serverId: string): Promise<any[]> {
-    const response = await this.client.post<ApiResponse<{ cameras: any[] }>>(
-      '/resources/discover/onvif',
-      { serverId }
+    const response = await this.client.get<ApiResponse<{ cameras: any[] }>>(
+      'cameras/discover'
     );
 
     if (response.data.success && response.data.data) {
       return response.data.data.cameras;
     }
+
+    // Fallback if not wrapped
+    if (Array.isArray(response.data)) return response.data;
+    if ((response.data as any).cameras) return (response.data as any).cameras;
 
     throw new Error(response.data.error?.message || 'Failed to discover cameras');
   }
@@ -396,7 +412,7 @@ export class ApiClient {
 
   async startLiveStream(request: StartLiveStreamRequest): Promise<StreamInfo> {
     const response = await this.client.post<ApiResponse<StreamInfo>>(
-      '/streaming/live',
+      'streaming/live',
       request
     );
 
@@ -409,7 +425,7 @@ export class ApiClient {
 
   async stopLiveStream(streamId: string): Promise<void> {
     const response = await this.client.delete<ApiResponse<{}>>(
-      `/streaming/live/${streamId}`
+      `streaming/live/${streamId}`
     );
 
     if (!response.data.success) {
@@ -419,7 +435,7 @@ export class ApiClient {
 
   async getStreamStatus(streamId: string): Promise<any> {
     const response = await this.client.get<ApiResponse<any>>(
-      `/streaming/status/${streamId}`
+      `streaming/status/${streamId}`
     );
 
     if (response.data.success && response.data.data) {
@@ -431,7 +447,7 @@ export class ApiClient {
 
   async ptzControl(cameraId: string, action: string, params?: any): Promise<any> {
     const response = await this.client.post<ApiResponse<any>>(
-      `/streaming/ptz/${cameraId}`,
+      `streaming/ptz/${cameraId}`,
       { action, params }
     );
 
@@ -444,7 +460,7 @@ export class ApiClient {
 
   async getPtzPresets(cameraId: string): Promise<any[]> {
     const response = await this.client.get<ApiResponse<{ presets: any[] }>>(
-      `/streaming/ptz/${cameraId}/presets`
+      `streaming/ptz/${cameraId}/presets`
     );
 
     if (response.data.success && response.data.data) {
@@ -456,7 +472,7 @@ export class ApiClient {
 
   async takeSnapshot(cameraId: string, profileId?: string): Promise<any> {
     const response = await this.client.post<ApiResponse<any>>(
-      `/streaming/snapshot/${cameraId}`,
+      `streaming/snapshot/${cameraId}`,
       { profileId }
     );
 
@@ -478,7 +494,7 @@ export class ApiClient {
     resolution?: number
   ): Promise<{ segments: TimelineSegment[]; events?: TimelineEvent[] }> {
     const response = await this.client.get<ApiResponse<any>>(
-      `/playback/timeline/${cameraId}`,
+      `playback/timeline/${cameraId}`,
       { params: { startTime, endTime, resolution } }
     );
 
@@ -491,7 +507,7 @@ export class ApiClient {
 
   async startPlayback(request: PlaybackStartRequest): Promise<PlaybackSession> {
     const response = await this.client.post<ApiResponse<PlaybackSession>>(
-      '/playback/start',
+      'playback/start',
       request
     );
 
@@ -504,7 +520,7 @@ export class ApiClient {
 
   async seekPlayback(sessionId: string, timestamp: string): Promise<any> {
     const response = await this.client.post<ApiResponse<any>>(
-      `/playback/seek/${sessionId}`,
+      `playback/seek/${sessionId}`,
       { timestamp }
     );
 
@@ -521,7 +537,7 @@ export class ApiClient {
     speed?: number
   ): Promise<any> {
     const response = await this.client.post<ApiResponse<any>>(
-      `/playback/control/${sessionId}`,
+      `playback/control/${sessionId}`,
       { action, speed }
     );
 
@@ -534,7 +550,7 @@ export class ApiClient {
 
   async frameStep(sessionId: string, direction: 'forward' | 'backward'): Promise<any> {
     const response = await this.client.post<ApiResponse<any>>(
-      `/playback/frame/${sessionId}`,
+      `playback/frame/${sessionId}`,
       { direction }
     );
 
@@ -547,7 +563,7 @@ export class ApiClient {
 
   async stopPlayback(sessionId: string): Promise<void> {
     const response = await this.client.delete<ApiResponse<{}>>(
-      `/playback/session/${sessionId}`
+      `playback/session/${sessionId}`
     );
 
     if (!response.data.success) {
@@ -561,7 +577,7 @@ export class ApiClient {
 
   async getEvents(params?: any): Promise<PaginatedResponse<Event>> {
     const response = await this.client.get<ApiResponse<PaginatedResponse<Event>>>(
-      '/events',
+      'events',
       { params }
     );
 
@@ -574,7 +590,7 @@ export class ApiClient {
 
   async acknowledgeEvent(eventId: string): Promise<void> {
     const response = await this.client.post<ApiResponse<{}>>(
-      `/events/${eventId}/acknowledge`
+      `events/${eventId}/acknowledge`
     );
 
     if (!response.data.success) {
@@ -584,7 +600,7 @@ export class ApiClient {
 
   async getEventDetails(eventId: string): Promise<any> {
     const response = await this.client.get<ApiResponse<any>>(
-      `/events/${eventId}`
+      `events/${eventId}`
     );
 
     if (response.data.success && response.data.data) {
@@ -600,7 +616,7 @@ export class ApiClient {
 
   async getBookmarks(params?: any): Promise<Bookmark[]> {
     const response = await this.client.get<ApiResponse<{ bookmarks: Bookmark[] }>>(
-      '/bookmarks',
+      'bookmarks',
       { params }
     );
 
@@ -613,7 +629,7 @@ export class ApiClient {
 
   async createBookmark(request: CreateBookmarkRequest): Promise<Bookmark> {
     const response = await this.client.post<ApiResponse<{ bookmark: Bookmark }>>(
-      '/bookmarks',
+      'bookmarks',
       request
     );
 
@@ -626,7 +642,7 @@ export class ApiClient {
 
   async updateBookmark(bookmarkId: string, data: any): Promise<Bookmark> {
     const response = await this.client.put<ApiResponse<{ bookmark: Bookmark }>>(
-      `/bookmarks/${bookmarkId}`,
+      `bookmarks/${bookmarkId}`,
       data
     );
 
@@ -639,7 +655,7 @@ export class ApiClient {
 
   async deleteBookmark(bookmarkId: string): Promise<void> {
     const response = await this.client.delete<ApiResponse<{}>>(
-      `/bookmarks/${bookmarkId}`
+      `bookmarks/${bookmarkId}`
     );
 
     if (!response.data.success) {
@@ -653,7 +669,7 @@ export class ApiClient {
 
   async createExport(request: CreateExportRequest): Promise<ExportJob> {
     const response = await this.client.post<ApiResponse<{ exportId: string; status: string }>>(
-      '/export',
+      'export',
       request
     );
 
@@ -676,7 +692,7 @@ export class ApiClient {
 
   async getExportStatus(exportId: string): Promise<ExportJob> {
     const response = await this.client.get<ApiResponse<ExportJob>>(
-      `/export/${exportId}`
+      `export/${exportId}`
     );
 
     if (response.data.success && response.data.data) {
@@ -688,7 +704,7 @@ export class ApiClient {
 
   async listExports(params?: any): Promise<PaginatedResponse<ExportJob>> {
     const response = await this.client.get<ApiResponse<PaginatedResponse<ExportJob>>>(
-      '/export',
+      'export',
       { params }
     );
 
@@ -701,7 +717,7 @@ export class ApiClient {
 
   async deleteExport(exportId: string): Promise<void> {
     const response = await this.client.delete<ApiResponse<{}>>(
-      `/export/${exportId}`
+      `export/${exportId}`
     );
 
     if (!response.data.success) {
@@ -715,7 +731,7 @@ export class ApiClient {
 
   async getSystemHealth(): Promise<SystemHealth> {
     const response = await this.client.get<ApiResponse<SystemHealth>>(
-      '/health'
+      'health'
     );
 
     if (response.data.success && response.data.data) {
@@ -727,7 +743,7 @@ export class ApiClient {
 
   async getCamerasHealth(): Promise<any> {
     const response = await this.client.get<ApiResponse<any>>(
-      '/health/cameras'
+      'health/cameras'
     );
 
     if (response.data.success && response.data.data) {
@@ -739,7 +755,7 @@ export class ApiClient {
 
   async getStorageHealth(): Promise<StoragePool[]> {
     const response = await this.client.get<ApiResponse<{ pools: StoragePool[] }>>(
-      '/health/storage'
+      'health/storage'
     );
 
     if (response.data.success && response.data.data) {
@@ -751,7 +767,7 @@ export class ApiClient {
 
   async getMetrics(): Promise<SystemMetrics> {
     const response = await this.client.get<ApiResponse<SystemMetrics>>(
-      '/health/metrics'
+      'health/metrics'
     );
 
     if (response.data.success && response.data.data) {
@@ -767,7 +783,7 @@ export class ApiClient {
 
   async getServerDirectory(): Promise<DirectoryServer[]> {
     const response = await this.client.get<ApiResponse<{ servers: DirectoryServer[] }>>(
-      '/directory/servers'
+      'directory/servers'
     );
 
     if (response.data.success && response.data.data) {
@@ -779,7 +795,7 @@ export class ApiClient {
 
   async addServerToDirectory(data: any): Promise<DirectoryServer> {
     const response = await this.client.post<ApiResponse<{ server: DirectoryServer }>>(
-      '/directory/servers',
+      'directory/servers',
       data
     );
 
@@ -792,7 +808,7 @@ export class ApiClient {
 
   async removeServerFromDirectory(serverId: string): Promise<void> {
     const response = await this.client.delete<ApiResponse<{}>>(
-      `/directory/servers/${serverId}`
+      `directory/servers/${serverId}`
     );
 
     if (!response.data.success) {
@@ -806,7 +822,7 @@ export class ApiClient {
 
   async getUsers(params?: any): Promise<PaginatedResponse<User>> {
     const response = await this.client.get<ApiResponse<PaginatedResponse<User>>>(
-      '/users',
+      'users',
       { params }
     );
 
@@ -819,7 +835,7 @@ export class ApiClient {
 
   async createUser(data: any): Promise<User> {
     const response = await this.client.post<ApiResponse<{ user: User }>>(
-      '/users',
+      'users',
       data
     );
 
@@ -832,7 +848,7 @@ export class ApiClient {
 
   async updateUser(userId: string, data: any): Promise<User> {
     const response = await this.client.put<ApiResponse<{ user: User }>>(
-      `/users/${userId}`,
+      `users/${userId}`,
       data
     );
 
@@ -845,7 +861,7 @@ export class ApiClient {
 
   async deleteUser(userId: string): Promise<void> {
     const response = await this.client.delete<ApiResponse<{}>>(
-      `/users/${userId}`
+      `users/${userId}`
     );
 
     if (!response.data.success) {
@@ -855,7 +871,7 @@ export class ApiClient {
 
   async getRoles(): Promise<any[]> {
     const response = await this.client.get<ApiResponse<{ roles: any[] }>>(
-      '/roles'
+      'roles'
     );
 
     if (response.data.success && response.data.data) {
@@ -867,7 +883,7 @@ export class ApiClient {
 
   async createRole(data: any): Promise<any> {
     const response = await this.client.post<ApiResponse<{ role: any }>>(
-      '/roles',
+      'roles',
       data
     );
 
@@ -880,7 +896,7 @@ export class ApiClient {
 
   async updateRole(roleId: string, data: any): Promise<any> {
     const response = await this.client.put<ApiResponse<{ role: any }>>(
-      `/roles/${roleId}`,
+      `roles/${roleId}`,
       data
     );
 
@@ -893,7 +909,7 @@ export class ApiClient {
 
   async deleteRole(roleId: string): Promise<void> {
     const response = await this.client.delete<ApiResponse<{}>>(
-      `/roles/${roleId}`
+      `roles/${roleId}`
     );
 
     if (!response.data.success) {
@@ -916,6 +932,110 @@ export class ApiClient {
 
   isAuthenticated(): boolean {
     return !!this.accessToken;
+  }
+
+  // ============================================================================
+  // SERVER API
+  // ============================================================================
+
+  async getServers(): Promise<DirectoryServer[]> {
+    const response = await this.client.get<ApiResponse<DirectoryServer[]>>('servers');
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any) || [];
+  }
+
+  async createServer(server: Partial<DirectoryServer>): Promise<DirectoryServer> {
+    const response = await this.client.post<ApiResponse<DirectoryServer>>('servers', server);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    // Fallback if not wrapped
+    if ((response.data as any).id) return response.data as any;
+    throw new Error(response.data.error?.message || 'Failed to create server');
+  }
+
+  async updateServer(id: string, server: Partial<DirectoryServer>): Promise<DirectoryServer> {
+    const response = await this.client.patch<ApiResponse<DirectoryServer>>(`servers/${id}`, server);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    // Fallback if not wrapped
+    if ((response.data as any).id) return response.data as any;
+    throw new Error(response.data.error?.message || 'Failed to update server');
+  }
+
+  async testServerConnection(id: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await this.client.post<ApiResponse<any>>(`servers/${id}/test`);
+      if (response.data.success) {
+        return { success: true, message: 'Conexión exitosa' };
+      }
+      return { success: false, message: response.data.error?.message || 'Error de conexión' };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  }
+
+  async deleteServer(id: string): Promise<void> {
+    const response = await this.client.delete<ApiResponse<void>>(`servers/${id}`);
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || 'Failed to delete server');
+    }
+  }
+
+  async importFrigateCameras(serverId: string): Promise<any[]> {
+    const response = await this.client.post<ApiResponse<any[]>>(`cameras/import/frigate/${serverId}`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to import cameras');
+  }
+
+  async discoverOnvifCameras(serverId: string): Promise<any[]> {
+    const response = await this.client.get<ApiResponse<any[]>>(`cameras/discover?serverId=${serverId}`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any) || [];
+  }
+
+  async connectOnvifCamera(data: { address: string; username?: string; password?: string; serverId?: string }): Promise<any> {
+    const response = await this.client.post<ApiResponse<any>>('cameras/connect-onvif', data);
+    if (response.data.success) {
+      return response.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to connect ONVIF camera');
+  }
+
+  // ============================================================================
+  // PLAYBACK API
+  // ============================================================================
+
+  async getPlaybackStream(cameraId: string): Promise<{ playlistUrl: string; status: string; streamType?: string }> {
+    const response = await this.client.get<ApiResponse<{ playlistUrl: string; status: string; streamType?: string }>>(
+      `playback/stream/${cameraId}`
+    );
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any);
+  }
+
+  async getTimeline(cameraId: string, startDate?: string, endDate?: string): Promise<{ segments: any[], total: number }> {
+    const params: any = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    
+    const response = await this.client.get<ApiResponse<{ segments: any[], total: number }>>(
+      `playback/timeline/${cameraId}`,
+      { params }
+    );
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any) || { segments: [], total: 0 };
   }
 }
 

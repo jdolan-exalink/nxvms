@@ -31,10 +31,10 @@ export const LoginScreen: React.FC = () => {
 
   // Initialize serverUrl with relative URL (proxied through Nginx)
   useEffect(() => {
-    // Always use relative URL /api/v1 - it's proxied through Nginx on port 5173
+    // Always use relative URL /api/v1/ - it's proxied through Nginx on port 5173
     // This avoids CORS issues and works from any IP address
-    setServerUrl('/api/v1');
-    console.log('[LoginScreen] 🔗 Using relative URL: /api/v1 (proxied through Nginx)');
+    setServerUrl('/api/v1/');
+    console.log('[LoginScreen] 🔗 Using relative URL: /api/v1/ (proxied through Nginx)');
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,10 +49,10 @@ export const LoginScreen: React.FC = () => {
     startLoading('Logging in...');
 
     try {
-      // Use relative URL /api/v1 - no need to specify serverUrl field
-      const apiClient = getApiClient('/api/v1');
+      // Use relative URL /api/v1/ - no need to specify serverUrl field
+      const apiClient = getApiClient('/api/v1/');
       console.log('[LoginScreen] 🔑 Login attempt:', {
-        serverUrl: '/api/v1',
+        serverUrl: '/api/v1/',
         username,
         passwordLength: password.length,
       });

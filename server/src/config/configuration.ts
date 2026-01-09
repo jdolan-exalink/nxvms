@@ -15,6 +15,7 @@ export const configuration = () => ({
   storage: {
     path: process.env.STORAGE_PATH || '/mnt/nxvms/storage',
     chunksPath: process.env.STORAGE_PATH ? `${process.env.STORAGE_PATH}/chunks` : '/mnt/nxvms/storage/chunks',
+    hlsPath: process.env.STORAGE_PATH ? `${process.env.STORAGE_PATH}/hls` : '/mnt/nxvms/storage/hls',
   },
   ffmpeg: {
     path: process.env.FFMPEG_PATH || 'ffmpeg',
@@ -26,5 +27,16 @@ export const configuration = () => ({
   },
   onvif: {
     discoveryTimeout: parseInt(process.env.ONVIF_DISCOVERY_TIMEOUT || '5000', 10),
+  },
+  mqtt: {
+    host: process.env.MQTT_HOST || 'localhost',
+    port: parseInt(process.env.MQTT_PORT || '1883', 10),
+    user: process.env.MQTT_USER,
+    password: process.env.MQTT_PASSWORD,
+    baseTopic: process.env.MQTT_BASE_TOPIC || 'frigate',
+  },
+  frigate: {
+    url: process.env.FRIGATE_URL || 'http://localhost:5000',
+    rtspPassword: process.env.FRIGATE_RTSP_PASSWORD || 'password',
   },
 });

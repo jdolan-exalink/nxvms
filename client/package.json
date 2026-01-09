@@ -1,13 +1,13 @@
 {
   "name": "nxvms-client",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "NXvms Desktop Client - Video Management System",
   "main": "dist/main/index.js",
   "author": "NXvms Team",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:mock\" \"npm run dev:renderer\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
+    "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
     "dev:renderer": "vite",
     "dev:electron": "electron .",
     "dev:mock": "vite-node mock-server/mock-api.ts",

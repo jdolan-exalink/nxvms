@@ -5,3 +5,7 @@ export { StreamEntity, StreamType } from './stream.entity';
 export { RecordingSegmentEntity, RecordingType } from './recording-segment.entity';
 export { AuditLogEntity, AuditAction } from './audit-log.entity';
 export { VideoExportEntity } from './video-export.entity';
+export { DetectionEventEntity } from './detection-event.entity';
+export { RuleEntity } from './rule.entity';
+export { BookmarkEntity } from './bookmark.entity';
+export { DirectoryServerEntity, ServerType, ServerStatus } from './directory-server.entity';

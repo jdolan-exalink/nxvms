@@ -11,9 +11,7 @@ import {
   VolumeX,
   Maximize,
   Camera as CameraIcon,
-  Download,
   Settings,
-  X,
 } from 'lucide-react';
 import Hls from 'hls.js';
 import { StreamType, Camera } from '../shared/types';
@@ -41,7 +39,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
     streamType,
     autoplay = true,
     muted = false,
-    onSnapshot,
     onFullscreen,
     onSettings,
   } = props;
@@ -63,16 +60,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
 
   // Sync muted prop with local state
   useEffect(() => {
-    const hasAudio = camera.capabilities?.audio;
+    const hasAudio = camera.capabilities?.audio !== false;
     const shouldMute = !hasAudio || muted;
-    
+
     console.log(`[VIDEO] ${camera.name} - Muted: ${shouldMute}, HasAudio: ${hasAudio}, PropMuted: ${muted}`);
-    
+
     setIsMuted(shouldMute);
+    setVolume(shouldMute ? 0 : 1);
+
     const video = videoRef.current;
     if (video) {
       video.muted = shouldMute;
-      
+      video.volume = shouldMute ? 0 : 1;
+
       // If we are unmuting (meaning it has audio and is requested), try to play
       if (!shouldMute) {
         video.play().catch(() => {
@@ -89,7 +89,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
 
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey) return; // Allow browser default zoom with ctrl
-      
+
       e.preventDefault();
       const container = containerRef.current;
       if (!container) return;
@@ -99,20 +99,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
       const mouseY = e.clientY - rect.top;
 
       const delta = -e.deltaY;
-      
+
       setZoom(prevZoom => {
-        const zoomStep = prevZoom >= 2 ? 0.8 : 0.4; 
+        const zoomStep = prevZoom >= 2 ? 0.8 : 0.4;
         const nextZoom = Math.min(Math.max(1, prevZoom + (delta > 0 ? zoomStep : -zoomStep)), 8);
-        
+
         if (nextZoom === prevZoom) return prevZoom;
 
         setPosition(prevPos => {
           if (nextZoom === 1) return { x: 0, y: 0 };
-          
+
           const scaleFactor = nextZoom / prevZoom;
           const newX = mouseX - (mouseX - prevPos.x) * scaleFactor;
           const newY = mouseY - (mouseY - prevPos.y) * scaleFactor;
-          
+
           return { x: newX, y: newY };
         });
 
@@ -245,18 +245,31 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
     const video = videoRef.current;
     if (!video) return;
 
-    video.muted = !video.muted;
-    setIsMuted(!video.muted);
-  }, [isMuted]);
+    const newMuted = !isMuted;
+    video.muted = newMuted;
+    setIsMuted(newMuted);
+
+    // Default to full volume when unmuting if it was at 0
+    if (!newMuted && volume === 0) {
+      video.volume = 1;
+      setVolume(1);
+    } else if (newMuted) {
+      video.volume = 0;
+      setVolume(0);
+    }
+  }, [isMuted, volume]);
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const video = videoRef.current;
     if (!video) return;
 
     const newVolume = parseFloat(e.target.value);
+    const newMuted = newVolume === 0;
+
     video.volume = newVolume;
+    video.muted = newMuted;
     setVolume(newVolume);
-    setIsMuted(newVolume === 0);
+    setIsMuted(newMuted);
   }, []);
 
   const handleFullscreen = useCallback(() => {
@@ -309,12 +322,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
     }
   }, [camera.name, props]);
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (zoom <= 1) return;
     setIsDragging(true);
@@ -323,21 +330,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isDragging || zoom <= 1) return;
-    
+
     const container = containerRef.current;
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
     const newX = e.clientX - dragStart.current.x;
     const newY = e.clientY - dragStart.current.y;
-    
+
     // Limits to prevent dragging the image out of the container
     const minX = rect.width * (1 - zoom);
     const minY = rect.height * (1 - zoom);
-    
-    setPosition({ 
-      x: Math.max(minX, Math.min(0, newX)), 
-      y: Math.max(minY, Math.min(0, newY)) 
+
+    setPosition({
+      x: Math.max(minX, Math.min(0, newX)),
+      y: Math.max(minY, Math.min(0, newY))
     });
   }, [isDragging, zoom]);
 
@@ -346,8 +353,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
   }, []);
 
   return (
-    <div 
-      ref={containerRef} 
+    <div
+      ref={containerRef}
       className={`relative w-full h-full bg-black group overflow-hidden ${zoom > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
       style={{ touchAction: 'none' }}
       onMouseDown={handleMouseDown}
@@ -416,8 +423,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
               isEnabled={isPlaying}
               onPtzControl={props.onPtzControl || (() => Promise.resolve())}
               presets={[]}
-              onPresetSelect={(preset) => {
-                props.onPtzControl?.('preset', { presetId: preset });
+              onPresetSelect={async (preset) => {
+                await props.onPtzControl?.('preset', { presetId: preset });
               }}
             />
           )}
@@ -472,13 +479,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = (props) => {
               />
             </div>
 
-            {/* Time */}
-            <span className="text-white text-sm font-mono">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
             {/* Snapshot */}
             <button
               onClick={handleSnapshot}

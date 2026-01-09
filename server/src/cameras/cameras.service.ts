@@ -21,7 +21,7 @@ export class CamerasService {
     private onvifService: OnvifService,
     private storageService: StorageService,
     private frigateService: FrigateService,
-  ) {}
+  ) { }
 
   async createCamera(createCameraDto: CreateCameraDto, userId: string, serverId?: string): Promise<CameraEntity> {
     const camera = this.cameraRepository.create({
@@ -29,6 +29,14 @@ export class CamerasService {
       serverId,
       createdById: userId,
       status: CameraStatus.OFFLINE,
+      capabilities: {
+        audio: true,
+        ptz: false,
+        digitalZoom: true,
+        motionDetection: true,
+        analytics: false,
+        onvif: false,
+      } as any,
     });
 
     const savedCamera = await this.cameraRepository.save(camera);
@@ -52,10 +60,14 @@ export class CamerasService {
     if (!server) throw new NotFoundException('Frigate server not found');
 
     this.logger.log(`Importing cameras from Frigate server: ${server.name} (${server.url})`);
-    
+
     let frigateConfig;
+    let frigateStats;
     try {
-      frigateConfig = await this.frigateService.getConfig(server.url);
+      [frigateConfig, frigateStats] = await Promise.all([
+        this.frigateService.getConfig(server.url),
+        this.frigateService.getStats(server.url).catch(() => null)
+      ]);
     } catch (error) {
       this.logger.error(`Import failed: Could not reach Frigate at ${server.url}`);
       throw new BadRequestException(`No se pudo conectar con Frigate en ${server.url}. Verifique la URL.`);
@@ -73,28 +85,39 @@ export class CamerasService {
     for (const [name, config] of Object.entries<any>(cameras)) {
       try {
         this.logger.log(`[FRIGATE IMPORT] Analyzing camera: "${name}"`);
-        
+
         // 1. Check if already exists (by name and serverId)
-        let camera = await this.cameraRepository.findOne({ 
+        let camera = await this.cameraRepository.findOne({
           where: [
             { serverId, frigateCameraName: name },
             { frigateCameraName: name, serverId: null } // Also catch orphans
           ]
         });
 
+        const audioEnabled = config.audio?.enabled !== false; // Default to true if not explicitly disabled
+
+        // Determine status from stats
+        let status = CameraStatus.OFFLINE;
+        if (frigateStats && frigateStats.cameras && frigateStats.cameras[name]) {
+          const camStats = frigateStats.cameras[name];
+          if (camStats.camera_fps > 0 || (camStats.capture_fps && camStats.capture_fps > 0)) {
+            status = CameraStatus.ONLINE;
+          }
+        }
+
         if (!camera) {
-          this.logger.log(`[FRIGATE IMPORT] Creating NEW camera record for "${name}"`);
+          this.logger.log(`[FRIGATE IMPORT] Creating NEW camera record for "${name}" (Audio: ${audioEnabled}, Status: ${status})`);
           camera = this.cameraRepository.create({
             name: name,
             serverId, // Assign to this server
             provider: 'frigate',
             frigateCameraName: name,
             manufacturer: 'Frigate',
-            status: CameraStatus.ONLINE,
+            status,
             createdById: userId,
             description: `Imported from Frigate: ${name}`,
             capabilities: {
-              audio: true, // Default to true for Frigate to allow attempting playback
+              audio: audioEnabled,
               ptz: false,
               digitalZoom: true,
               motionDetection: true,
@@ -102,32 +125,35 @@ export class CamerasService {
           });
           newCount++;
         } else {
-          this.logger.log(`[FRIGATE IMPORT] Updating EXISTING camera record for "${name}" (ID: ${camera.id})`);
+          this.logger.log(`[FRIGATE IMPORT] Updating EXISTING camera record for "${name}" (ID: ${camera.id}, Audio: ${audioEnabled}, Status: ${status})`);
           camera.serverId = serverId; // Ensure it's linked
-          camera.status = CameraStatus.ONLINE;
+          camera.status = status;
           camera.provider = 'frigate';
-          // Ensure capabilities object exists
-          if (!camera.capabilities) {
-            camera.capabilities = { audio: true, digitalZoom: true } as any;
-          } else {
-            (camera.capabilities as any).audio = true;
-          }
+
+          // Update capabilities
+          const currentCapabilities = camera.capabilities || {};
+          camera.capabilities = {
+            ...currentCapabilities,
+            audio: audioEnabled,
+            digitalZoom: true
+          } as any;
+
           updatedCount++;
         }
 
         camera = await this.cameraRepository.save(camera);
-        
+
         // 2. Manage Streams (Clear and recreate to ensure they match latest proxy logic)
         // We'll check if streams already exist to avoid duplication
         const existingStreams = await this.streamRepository.findBy({ cameraId: camera.id });
-        
+
         if (existingStreams.length === 0) {
           this.logger.log(`[FRIGATE IMPORT] Generating default streams for "${name}"...`);
-          
+
           const streamsToCreate = [
             {
               type: StreamType.FRIGATE_MSE,
-              url: `/api/v1/frigate/proxy/${serverId}/api/go2rtc/api/stream.mp4?src=${name}_main`,
+              url: `/api/v1/frigate/proxy/${serverId}/api/go2rtc/api/stream.mp4?src=${name}_main&mp4=h264,aac`,
               profileName: 'Live (MSE Content)',
             },
             {
@@ -151,10 +177,10 @@ export class CamerasService {
           }
         } else {
           this.logger.log(`[FRIGATE IMPORT] Camera "${name}" already has ${existingStreams.length} streams. Skipping stream creation.`);
-          // Update existing stream URLs to use the latest go2rtc proxy paths
+          // Update existing stream URLs to use the latest go2rtc proxy paths + audio hints
           for (const stream of existingStreams) {
             if (stream.type === StreamType.FRIGATE_MSE) {
-              stream.url = `/api/v1/frigate/proxy/${serverId}/api/go2rtc/api/stream.mp4?src=${name}_main`;
+              stream.url = `/api/v1/frigate/proxy/${serverId}/api/go2rtc/api/stream.mp4?src=${name}_main&mp4=h264,aac`;
               await this.streamRepository.save(stream);
             } else if (stream.type === StreamType.HLS) {
               stream.url = `/api/v1/frigate/proxy/${serverId}/api/go2rtc/api/stream.m3u8?src=${name}_main`;
@@ -176,7 +202,7 @@ export class CamerasService {
 
   async connectOnvif(dto: { address: string; username?: string; password?: string; serverId?: string }, userId: string): Promise<CameraEntity> {
     const profiles = await this.onvifService.getCameraProfiles(dto.address, dto.username, dto.password);
-    
+
     if (!profiles || profiles.length === 0) {
       throw new BadRequestException('Could not retrieve ONVIF profiles from camera');
     }
@@ -194,7 +220,14 @@ export class CamerasService {
       provider: 'onvif',
       status: CameraStatus.ONLINE,
       createdById: userId,
-      description: `Discovered ONVIF device with ${profiles.length} profiles`
+      description: `Discovered ONVIF device with ${profiles.length} profiles`,
+      capabilities: {
+        audio: profiles.some(p => p.audioEncoderConfiguration || p.audioSourceConfiguration),
+        ptz: profiles.some(p => p.PTZConfiguration),
+        digitalZoom: true,
+        motionDetection: true,
+        onvif: true,
+      } as any
     });
 
     const savedCamera = await this.cameraRepository.save(camera);
@@ -208,8 +241,8 @@ export class CamerasService {
           type: StreamType.RTSP,
           url: uri,
           profileName: profile.name || profile.token || 'main',
-          resolution: profile.videoEncoderConfiguration?.resolution ? 
-            `${profile.videoEncoderConfiguration.resolution.width}x${profile.videoEncoderConfiguration.resolution.height}` : 
+          resolution: profile.videoEncoderConfiguration?.resolution ?
+            `${profile.videoEncoderConfiguration.resolution.width}x${profile.videoEncoderConfiguration.resolution.height}` :
             undefined,
         });
         await this.streamRepository.save(stream);
@@ -284,7 +317,7 @@ export class CamerasService {
   async discoverCameras(serverId?: string, timeout = 5000): Promise<any[]> {
     // 1. Try standard WS-Discovery (Multicast)
     const discoveryResults = await this.onvifService.discoverCameras(timeout);
-    
+
     // 2. If a serverId is provided, try picking up the IP of that server as a hint
     // This helps if multicast discovery is failing across docker networks
     if (serverId) {
@@ -295,7 +328,7 @@ export class CamerasService {
           const urlStr = server.url.startsWith('http') ? server.url : `http://${server.url}`;
           const url = new URL(urlStr);
           const ip = url.hostname;
-          
+
           if (ip && ip !== 'localhost' && ip !== '127.0.0.1' && ip !== 'frigate') {
             const directResult = await this.onvifService.probeSpecificIp(ip);
             if (directResult && !discoveryResults.some(c => c.hostname === ip)) {
@@ -312,9 +345,54 @@ export class CamerasService {
   }
 
 
+  async refreshCapabilities(cameraId: string): Promise<CameraEntity> {
+    const camera = await this.getCameraById(cameraId);
+
+    // Find a stream to probe
+    const stream = camera.streams.find(s => s.type === StreamType.RTSP) || camera.streams[0];
+    if (!stream) {
+      this.logger.warn(`No streams found for camera ${camera.name} to refresh capabilities`);
+      return camera;
+    }
+
+    try {
+      this.logger.log(`Probing stream for capabilities: ${stream.url}`);
+      const info = await this.ffmpegService.getStreamInfo(stream.url);
+      const hasAudio = info.streams.some((s: any) => s.codec_type === 'audio');
+
+      this.logger.log(`Refreshing capabilities for ${camera.name}: Audio detected = ${hasAudio}`);
+
+      const currentCapabilities = camera.capabilities || {};
+      camera.capabilities = {
+        ...currentCapabilities,
+        audio: hasAudio
+      } as any;
+
+      return await this.cameraRepository.save(camera);
+    } catch (error) {
+      this.logger.error(`Failed to refresh capabilities for ${camera.name}: ${error.message}`);
+      return camera;
+    }
+  }
+
   async setDetection(cameraId: string, enabled: boolean): Promise<CameraEntity> {
     const camera = await this.getCameraById(cameraId);
     camera.detectionEnabled = enabled;
     return this.cameraRepository.save(camera);
+  }
+
+  async syncAllStatuses(userId?: string): Promise<void> {
+    const servers = await this.serverRepository.find();
+
+    for (const server of servers) {
+      if (server.type === 'frigate') {
+        try {
+          // importFromFrigate now handles status determined from stats
+          await this.importFromFrigate(server.id, userId || 'system');
+        } catch (err) {
+          this.logger.error(`Auto-sync failed for Frigate server ${server.name}: ${err.message}`);
+        }
+      }
+    }
   }
 }

@@ -71,6 +71,7 @@ export interface Site {
   description?: string;
   servers: Server[];
   groups: Group[];
+  __typename?: 'Site';
 }
 
 export interface Server {
@@ -81,6 +82,7 @@ export interface Server {
   status: ServerStatus;
   capabilities: string[];
   cameras: Camera[];
+  __typename?: 'Server';
 }
 
 export interface Group {
@@ -89,6 +91,7 @@ export interface Group {
   type: 'camera' | 'server' | 'site';
   parentId?: string;
   resourceIds: string[];
+  __typename?: 'Group';
 }
 
 export interface Camera {
@@ -99,6 +102,8 @@ export interface Camera {
   status: CameraStatus;
   capabilities: CameraCapabilities;
   streams: Stream[];
+  rtspUrl?: string;
+  provider?: string;
   location?: {
     latitude?: number;
     longitude?: number;
@@ -107,6 +112,7 @@ export interface Camera {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  __typename?: 'Camera';
 }
 
 export interface CameraCapabilities {
@@ -405,10 +411,12 @@ export interface DirectoryServer {
   id: string;
   name: string;
   url: string;
+  type: 'frigate' | 'nx_vm';
   status: ServerStatus;
   lastSeen: string;
   version?: string;
   location?: string;
+  mqttBaseTopic?: string;
 }
 
 // ============================================================================

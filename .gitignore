@@ -76,3 +76,9 @@ dist
 
 # Version
 .version
+
+# Data
+mqtt/data/
+server/data/
+*.db
+*.sqlite

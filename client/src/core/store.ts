@@ -140,8 +140,11 @@ interface LayoutState {
   currentLayout: Layout | null;
   isFullscreen: boolean;
   selectedLayoutSize: number;
+  gridCameras: (string | null)[];
   setLayouts: (layouts: Layout[]) => void;
   setCurrentLayout: (layout: Layout | null) => void;
+  setGridCamera: (index: number, cameraId: string) => void;
+  removeGridCamera: (index: number) => void;
   createLayout: (layout: Omit<Layout, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateLayout: (layoutId: string, updates: Partial<Layout>) => void;
   deleteLayout: (layoutId: string) => void;
@@ -156,10 +159,23 @@ export const useLayoutStore = create<LayoutState>()(
       currentLayout: null,
       isFullscreen: false,
       selectedLayoutSize: 4,
+      gridCameras: Array(16).fill(null) as (string | null)[],
 
       setLayouts: (layouts) => set({ layouts }),
 
       setCurrentLayout: (layout) => set({ currentLayout: layout }),
+
+      setGridCamera: (index, cameraId) => set((state) => {
+        const next = [...state.gridCameras];
+        next[index] = cameraId;
+        return { gridCameras: next };
+      }),
+
+      removeGridCamera: (index) => set((state) => {
+        const next = [...state.gridCameras];
+        next[index] = null;
+        return { gridCameras: next };
+      }),
 
       createLayout: (layout) =>
         set((state) => ({
@@ -202,6 +218,7 @@ export const useLayoutStore = create<LayoutState>()(
         layouts: state.layouts,
         currentLayout: state.currentLayout,
         selectedLayoutSize: state.selectedLayoutSize,
+        gridCameras: state.gridCameras,
       }),
     }
   )

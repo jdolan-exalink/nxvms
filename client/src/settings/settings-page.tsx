@@ -4,9 +4,12 @@
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
-import { User, Bell, Palette, Shield, Database, Globe, Video, Server, Plus, RefreshCw, Trash2, Edit2 } from 'lucide-react';
+import { Shield, Database, Globe, Video, Server, Plus, RefreshCw, Trash2, Edit2 } from 'lucide-react';
 import { useResourcesStore } from '../core/store';
 import { getApiClient } from '../shared/api-client';
+
+import { Camera, DirectoryServer } from '../shared/types';
+import EditCameraModal from '../resources/EditCameraModal';
 
 export const SettingsPage: React.FC = () => {
   const { cameras, setCameras, setSites } = useResourcesStore();
@@ -14,9 +17,30 @@ export const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Overview');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
+
   useEffect(() => {
     handleRefresh();
   }, []);
+
+  const handleEditCamera = (camera: Camera) => {
+    setSelectedCamera(camera);
+    setIsEditModalOpen(true);
+  };
+
+  const handleDeleteCamera = async (id: string) => {
+    // We already moved delete to the modal, but keeping this as a helper if needed or just for standard list
+    if (!confirm('¿Estás seguro de que quieres eliminar esta cámara?')) return;
+    try {
+      const apiClient = getApiClient();
+      await apiClient.deleteCamera(id);
+      handleRefresh();
+    } catch (err: any) {
+      alert('Error al eliminar: ' + err.message);
+    }
+  };
 
   const sections = [
     { title: 'Overview', icon: Globe, desc: 'Estado general del sistema' },
@@ -30,7 +54,7 @@ export const SettingsPage: React.FC = () => {
     setIsRefreshing(true);
     try {
       const apiClient = getApiClient();
-      
+
       // Refresh servers
       const serversResponse = await apiClient.getServers();
       setServers(serversResponse || []);
@@ -38,7 +62,7 @@ export const SettingsPage: React.FC = () => {
       // Refresh resource tree
       const newSites = await apiClient.getResourceTree();
       setSites(newSites);
-      const allCameras = newSites.flatMap(site => 
+      const allCameras = newSites.flatMap(site =>
         site.servers.flatMap(server => server.cameras)
       );
       setCameras(allCameras);
@@ -86,7 +110,7 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleEditServer = async (server: any) => {
+  const handleEditServer = async (server: DirectoryServer) => {
     const name = prompt('Nombre del servidor:', server.name);
     if (!name) return;
     const url = prompt('URL del servidor:', server.url);
@@ -98,7 +122,7 @@ export const SettingsPage: React.FC = () => {
       await apiClient.updateServer(server.id, {
         name,
         url,
-        mqttBaseTopic: mqtt
+        mqttBaseTopic: mqtt || undefined
       });
       handleRefresh();
     } catch (err: any) {
@@ -113,18 +137,6 @@ export const SettingsPage: React.FC = () => {
       alert(result.message);
     } catch (err: any) {
       alert('Error de test: ' + err.message);
-    }
-  };
-
-
-  const handleDeleteCamera = async (id: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar esta cámara?')) return;
-    try {
-      const apiClient = getApiClient();
-      await apiClient.deleteCamera(id);
-      handleRefresh();
-    } catch (err: any) {
-      alert('Error al eliminar: ' + err.message);
     }
   };
 
@@ -148,25 +160,6 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleEditCamera = async (camera: any) => {
-    const name = prompt('Nombre de la cámara:', camera.name);
-    if (!name) return;
-    const rtspUrl = prompt('URL RTSP:', camera.rtspUrl);
-    if (!rtspUrl) return;
-
-    try {
-      const apiClient = getApiClient();
-      await apiClient.updateCamera(camera.id, {
-        name,
-        rtspUrl,
-      });
-      handleRefresh();
-    } catch (err: any) {
-      alert('Error: ' + err.message);
-    }
-  };
-
-
   const renderContent = () => {
     switch (activeTab) {
       case 'Cameras':
@@ -175,7 +168,7 @@ export const SettingsPage: React.FC = () => {
             <div className="flex justify-between items-center text-white">
               <h2 className="text-xl font-semibold">Cámaras ({cameras.length})</h2>
               <div className="flex gap-2">
-                <button 
+                <button
                   onClick={handleRefresh}
                   disabled={isRefreshing}
                   className="flex items-center gap-2 px-4 py-2 bg-dark-800 hover:bg-dark-700 rounded-lg border border-dark-700 transition-colors disabled:opacity-50"
@@ -183,7 +176,7 @@ export const SettingsPage: React.FC = () => {
                   <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
                   Actualizar
                 </button>
-                <button 
+                <button
                   onClick={handleAddCamera}
                   className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-lg transition-colors"
                 >
@@ -215,24 +208,25 @@ export const SettingsPage: React.FC = () => {
                       <tr key={cam.id} className="text-white hover:bg-dark-700/50 transition-colors">
                         <td className="px-6 py-4 font-medium">{cam.name}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            cam.status === 'online' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-                          }`}>
+                          <span className={`px-2 py-1 rounded-full text-xs ${cam.status === 'online' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                            }`}>
                             {cam.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-dark-400 font-mono text-xs">{cam.rtspUrl || 'N/A'}</td>
+                        <td className="px-6 py-4 text-dark-400 font-mono text-xs truncate max-w-[200px]">{cam.rtspUrl || 'N/A'}</td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
-                            <button 
+                            <button
                               onClick={() => handleEditCamera(cam)}
                               className="p-2 text-dark-400 hover:text-white transition-colors"
+                              title="Editar"
                             >
                               <Edit2 size={16} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteCamera(cam.id)}
                               className="p-2 text-dark-400 hover:text-red-500 transition-colors"
+                              title="Eliminar"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -253,7 +247,7 @@ export const SettingsPage: React.FC = () => {
             <div className="flex justify-between items-center text-white">
               <h2 className="text-xl font-semibold">Servidores ({servers.length})</h2>
               <div className="flex gap-2">
-                <button 
+                <button
                   onClick={handleRefresh}
                   disabled={isRefreshing}
                   className="flex items-center gap-2 px-4 py-2 bg-dark-800 hover:bg-dark-700 rounded-lg border border-dark-700 transition-colors disabled:opacity-50"
@@ -261,7 +255,7 @@ export const SettingsPage: React.FC = () => {
                   <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
                   Actualizar
                 </button>
-                <button 
+                <button
                   onClick={handleAddServer}
                   className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 rounded-lg transition-colors"
                 >
@@ -289,13 +283,12 @@ export const SettingsPage: React.FC = () => {
                           <p className="text-xs text-dark-400 uppercase tracking-wider">{server.type}</p>
                         </div>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold ${
-                        server.status === 'online' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold ${server.status === 'online' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                        }`}>
                         {server.status}
                       </span>
                     </div>
-                    
+
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-dark-400">URL</span>
@@ -310,21 +303,21 @@ export const SettingsPage: React.FC = () => {
                     </div>
 
                     <div className="pt-4 flex justify-end gap-2 border-t border-dark-700">
-                      <button 
+                      <button
                         onClick={() => handleTestServer(server.id)}
                         className="flex items-center gap-2 px-3 py-1.5 text-xs text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 rounded-md transition-colors"
                       >
                         <RefreshCw size={14} />
                         Probar
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleEditServer(server)}
                         className="flex items-center gap-2 px-3 py-1.5 text-xs text-dark-300 hover:text-white hover:bg-dark-700 rounded-md transition-colors"
                       >
                         <Edit2 size={14} />
                         Editar
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDeleteServer(server.id)}
                         className="flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-md transition-colors"
                       >
@@ -338,23 +331,21 @@ export const SettingsPage: React.FC = () => {
             </div>
           </div>
         );
-      
+
       default:
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {sections.map((s, i) => (
-              <button 
+              <button
                 key={i}
                 onClick={() => setActiveTab(s.title)}
-                className={`flex items-start gap-4 p-6 rounded-xl border transition-all group text-left ${
-                  activeTab === s.title 
-                    ? 'bg-primary-600/10 border-primary-500' 
-                    : 'bg-dark-800 border-dark-700 hover:border-primary-500/50 hover:bg-dark-700/50'
-                }`}
+                className={`flex items-start gap-4 p-6 rounded-xl border transition-all group text-left ${activeTab === s.title
+                  ? 'bg-primary-600/10 border-primary-500'
+                  : 'bg-dark-800 border-dark-700 hover:border-primary-500/50 hover:bg-dark-700/50'
+                  }`}
               >
-                <div className={`p-3 rounded-lg transition-colors ${
-                  activeTab === s.title ? 'bg-primary-600 text-white' : 'bg-dark-900 text-primary-500 group-hover:bg-primary-600 group-hover:text-white'
-                }`}>
+                <div className={`p-3 rounded-lg transition-colors ${activeTab === s.title ? 'bg-primary-600 text-white' : 'bg-dark-900 text-primary-500 group-hover:bg-primary-600 group-hover:text-white'
+                  }`}>
                   <s.icon size={24} />
                 </div>
                 <div>
@@ -377,7 +368,7 @@ export const SettingsPage: React.FC = () => {
             <p className="text-dark-400">Administra tu sistema de videovigilancia NXvms</p>
           </div>
           {activeTab !== 'Overview' && (
-            <button 
+            <button
               onClick={() => setActiveTab('Overview')}
               className="text-primary-500 hover:text-primary-400 font-medium text-sm"
             >
@@ -391,13 +382,19 @@ export const SettingsPage: React.FC = () => {
         <div className="mt-12 flex justify-between items-center p-6 bg-dark-800/50 rounded-xl border border-dark-700">
           <div>
             <h4 className="text-white font-medium">Sobre NXvms</h4>
-            <p className="text-sm text-dark-400">Versión 0.1.0 (Alpha) - Backend: http://localhost:3000</p>
+            <p className="text-sm text-dark-400">Versión 0.1.3 (Alpha) - Backend: http://localhost:3000</p>
           </div>
           <button className="text-primary-500 hover:text-primary-400 text-sm font-medium">
             Buscar actualizaciones
           </button>
         </div>
       </div>
+      <EditCameraModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        camera={selectedCamera}
+        onSuccess={handleRefresh}
+      />
     </div>
   );
 };

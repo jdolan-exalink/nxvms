@@ -18,8 +18,8 @@ import {
   Plus,
   RefreshCw,
 } from 'lucide-react';
-import { useResourcesStore } from '../core/store';
-import { Site, Server as ServerType, Camera, CameraStatus } from '../shared/types';
+import { useResourcesStore, useLayoutStore } from '../core/store';
+import { Site, Server as ServerType, Camera, CameraStatus, Group } from '../shared/types';
 import { STATUS_COLORS } from '../shared/constants';
 import { getApiClient } from '../shared/api-client';
 import AddCameraModal from './AddCameraModal';
@@ -30,7 +30,7 @@ interface ResourceTreeProps {
 }
 
 interface TreeNodeProps {
-  node: Site | ServerType | Camera;
+  node: Site | ServerType | Camera | Group;
   level: number;
   onCameraSelect?: (camera: Camera) => void;
   selectedCameraId?: string | null;
@@ -41,8 +41,10 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, level, onCameraSelect, select
   const toggleNode = useResourcesStore((state) => state.toggleNode);
   const selectCamera = useResourcesStore((state) => state.selectCamera);
 
+  const gridCameras = useLayoutStore((state) => state.gridCameras);
   const isExpanded = expandedNodes.has(node.id);
   const isSelected = selectedCameraId === node.id;
+  const isInGrid = node.__typename === 'Camera' && gridCameras.includes(node.id);
 
   const handleToggle = () => {
     toggleNode(node.id);
@@ -53,6 +55,16 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, level, onCameraSelect, select
     if (node.__typename === 'Camera' && onCameraSelect) {
       onCameraSelect(node as Camera);
       selectCamera(node.id);
+    }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (node.__typename === 'Camera') {
+      const event = new CustomEvent('nx-camera-double-click', {
+        detail: { cameraId: node.id }
+      });
+      window.dispatchEvent(event);
     }
   };
 
@@ -80,7 +92,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, level, onCameraSelect, select
     if (node.__typename === 'Camera') {
       const camera = node as Camera;
       const status = String(camera.status || 'offline').toLowerCase();
-      
+
       switch (status) {
         case 'online':
         case 'active':
@@ -106,11 +118,11 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, level, onCameraSelect, select
   return (
     <div>
       <div
-        className={`flex items-center gap-2 py-2 px-2 rounded-lg cursor-pointer transition-colors group ${
-          isSelected ? 'bg-primary-600/20' : 'hover:bg-dark-700'
-        }`}
+        className={`flex items-center gap-2 py-2 px-2 rounded-lg cursor-pointer transition-colors group ${isSelected ? 'bg-primary-600/20' : 'hover:bg-dark-700'
+          }`}
         style={{ paddingLeft: `${paddingLeft + 8}px` }}
         onClick={hasChildren ? handleToggle : handleSelect}
+        onDoubleClick={node.__typename === 'Camera' ? handleDoubleClick : undefined}
         draggable={node.__typename === 'Camera'}
         onDragStart={node.__typename === 'Camera' ? handleDragStart : undefined}
       >
@@ -131,7 +143,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, level, onCameraSelect, select
         )}
         {!hasChildren && <div className="w-6" />}
         {getIcon()}
-        <span className="flex-1 text-sm text-white truncate">{node.name}</span>
+        <span className={`flex-1 text-sm text-white truncate ${isInGrid ? 'font-bold' : ''}`}>{node.name}</span>
         {getStatusIndicator()}
         <button className="p-1 hover:bg-dark-600 rounded transition-colors opacity-0 group-hover:opacity-100">
           <MoreVertical className="w-4 h-4 text-dark-400" />
@@ -220,7 +232,7 @@ export const ResourceTree: React.FC<ResourceTreeProps> = ({
       const apiClient = getApiClient();
       const newSites = await apiClient.getResourceTree();
       setSites(newSites);
-      const allCameras = newSites.flatMap(site => 
+      const allCameras = newSites.flatMap(site =>
         site.servers.flatMap(server => server.cameras)
       );
       setCameras(allCameras);
@@ -254,7 +266,7 @@ export const ResourceTree: React.FC<ResourceTreeProps> = ({
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-semibold text-dark-500 uppercase tracking-wider">Recursos</h2>
           <div className="flex gap-1">
-            <button 
+            <button
               onClick={handleRefresh}
               disabled={isRefreshing}
               className="p-1.5 text-dark-400 hover:text-white hover:bg-dark-700 rounded-md transition-colors disabled:opacity-50"
@@ -262,7 +274,7 @@ export const ResourceTree: React.FC<ResourceTreeProps> = ({
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
-            <button 
+            <button
               onClick={handleAddCamera}
               className="p-1.5 text-primary-500 hover:text-primary-400 hover:bg-primary-500/10 rounded-md transition-colors"
               title="Agregar Cámara"
@@ -320,10 +332,10 @@ export const ResourceTree: React.FC<ResourceTreeProps> = ({
         </div>
       </div>
 
-      <AddCameraModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onSuccess={handleRefresh} 
+      <AddCameraModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={handleRefresh}
       />
     </div>
   );

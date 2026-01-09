@@ -37,6 +37,9 @@ export class CameraEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   rtspUrl: string;
 
+  @Column({ type: 'varchar', length: 50, default: 'generic' })
+  provider: string; // 'onvif', 'frigate', 'generic'
+
   @Column({ type: 'enum', enum: CameraStatus, default: CameraStatus.OFFLINE })
   status: CameraStatus;
 
@@ -45,9 +48,6 @@ export class CameraEntity {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   model: string;
-
-  @Column({ type: 'varchar', length: 50, default: 'onvif' })
-  provider: string; // 'onvif', 'frigate', 'generic'
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   frigateCameraName: string;

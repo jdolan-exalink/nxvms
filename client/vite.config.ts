@@ -9,9 +9,17 @@ let version = pkg.version || '0.1.0';
 
 // Try to read version from .version file (optional, fallback to package.json)
 try {
-  const versionPath = path.resolve(__dirname, '../.version');
-  if (fs.existsSync(versionPath)) {
-    version = fs.readFileSync(versionPath, 'utf-8').trim();
+  // Check both current dir (Docker) and parent dir (Local Dev)
+  const versionPaths = [
+    path.resolve(__dirname, '.version'),
+    path.resolve(__dirname, '../.version')
+  ];
+  
+  for (const vPath of versionPaths) {
+    if (fs.existsSync(vPath)) {
+      version = fs.readFileSync(vPath, 'utf-8').trim();
+      break;
+    }
   }
 } catch (error) {
   // Ignore errors, use package.json version

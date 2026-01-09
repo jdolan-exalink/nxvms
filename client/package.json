@@ -1,6 +1,6 @@
 {
   "name": "nxvms-client",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "NXvms Desktop Client - Video Management System",
   "main": "dist/main/index.js",
   "author": "NXvms Team",

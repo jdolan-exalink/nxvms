@@ -3,47 +3,29 @@
 // Main component for real-time video monitoring
 // ============================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useResourcesStore, useLayoutStore } from '../core/store';
 import { GridLayout } from '../layout/grid-layout';
 import { Camera } from '../shared/types';
 
 export const LiveView: React.FC = () => {
   const { cameras, getCameraById } = useResourcesStore();
-  const { selectedLayoutSize } = useLayoutStore();
-  
-  // State for cameras in the grid
-  const [gridCameras, setGridCameras] = useState<(Camera | null)[]>(
-    Array(16).fill(null)
-  );
+  const { selectedLayoutSize, gridCameras, setGridCamera, removeGridCamera } = useLayoutStore();
 
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
   const [maximizedIndex, setMaximizedIndex] = useState<number | null>(null);
 
-  // Initialize with some cameras if available and grid is empty
-  useEffect(() => {
-    if (cameras.length > 0 && gridCameras.every(c => c === null)) {
-      const initialGrid = [...gridCameras];
-      cameras.slice(0, selectedLayoutSize).forEach((cam, i) => {
-        initialGrid[i] = cam;
-      });
-      setGridCameras(initialGrid);
-    }
-  }, [cameras, selectedLayoutSize]);
+  // Map persisted camera IDs to real objects
+  const gridCamerasData = useMemo(() => {
+    return gridCameras.map(id => id ? getCameraById(id) || null : null);
+  }, [gridCameras, cameras]);
 
   const handleCameraDrop = (index: number, cameraId: string) => {
-    const camera = getCameraById(cameraId);
-    if (camera) {
-      setGridCameras(prev => {
-        const next = [...prev];
-        next[index] = camera;
-        return next;
-      });
-    }
+    setGridCamera(index, cameraId);
   };
 
   const handleCameraClick = (index: number) => {
-    const camera = gridCameras[index];
+    const camera = gridCamerasData[index];
     if (camera) {
       setSelectedCameraId(camera.id);
       console.log(`Camera selected: ${camera.name} at grid index ${index}`);
@@ -57,22 +39,45 @@ export const LiveView: React.FC = () => {
   };
 
   const handleCameraRemove = (index: number) => {
-    setGridCameras(prev => {
-      const next = [...prev];
-      next[index] = null;
-      return next;
-    });
+    removeGridCamera(index);
     // If we removed the selected camera, deselect it
-    const removedCamera = gridCameras[index];
-    if (removedCamera && removedCamera.id === selectedCameraId) {
+    const removedCameraId = gridCameras[index];
+    if (removedCameraId && removedCameraId === selectedCameraId) {
       setSelectedCameraId(null);
     }
   };
 
+  // Add listener for sidebar double-click to fill gaps
+  useEffect(() => {
+    const handleSidebarDoubleClick = (e: any) => {
+      if (e.detail && e.detail.cameraId) {
+        const cameraId = e.detail.cameraId;
+
+        // Find if already in grid
+        if (gridCameras.includes(cameraId)) {
+          // Maybe just select it?
+          setSelectedCameraId(cameraId);
+          return;
+        }
+
+        // Find first empty slot within current layout size
+        const emptyIndex = gridCameras.findIndex((camId, idx) => idx < selectedLayoutSize && camId === null);
+
+        if (emptyIndex !== -1) {
+          setGridCamera(emptyIndex, cameraId);
+          setSelectedCameraId(cameraId);
+        }
+      }
+    };
+
+    window.addEventListener('nx-camera-double-click', handleSidebarDoubleClick);
+    return () => window.removeEventListener('nx-camera-double-click', handleSidebarDoubleClick);
+  }, [gridCameras, selectedLayoutSize, setGridCamera]);
+
   return (
     <div className="h-full w-full bg-dark-900 overflow-hidden relative">
       <GridLayout
-        cameras={gridCameras}
+        cameras={gridCamerasData}
         selectedCameraId={selectedCameraId}
         maximizedIndex={maximizedIndex}
         onCameraClick={handleCameraClick}

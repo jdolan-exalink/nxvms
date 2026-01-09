@@ -13,7 +13,7 @@ import { ApiBearerAuth, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagg
 export class CamerasController {
   private readonly logger = new Logger(CamerasController.name);
 
-  constructor(private camerasService: CamerasService) {}
+  constructor(private camerasService: CamerasService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new camera' })
@@ -66,10 +66,16 @@ export class CamerasController {
 
   @Get('tree')
   @ApiOperation({ summary: 'Get resource tree for the client' })
-  async getResourceTree() {
+  async getResourceTree(@CurrentUser() user: UserEntity) {
+    try {
+      await this.camerasService.syncAllStatuses(user.id);
+    } catch (err) {
+      this.logger.error(`Status sync failed during tree fetch: ${err.message}`);
+    }
+
     const servers = await this.camerasService.getAllServers();
     const cameras = await this.camerasService.getAllCameras();
-    
+
     // Group cameras by serverId
     const serversWithCameras = servers.map(server => {
       let host = 'localhost';
@@ -171,6 +177,13 @@ export class CamerasController {
   @ApiOperation({ summary: 'Enable object detection' })
   async enableDetection(@Param('id') cameraId: string) {
     const result = await this.camerasService.setDetection(cameraId, true);
+    return { success: true, data: result };
+  }
+
+  @Post(':id/refresh-capabilities')
+  @ApiOperation({ summary: 'Refresh camera capabilities' })
+  async refreshCapabilities(@Param('id') cameraId: string) {
+    const result = await this.camerasService.refreshCapabilities(cameraId);
     return { success: true, data: result };
   }
 

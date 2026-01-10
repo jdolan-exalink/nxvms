@@ -36,7 +36,7 @@ import * as path from 'path';
         },
       ],
     }),
-    EventEmitterModule.forRoot(),
+    EventEmitterModule.forRoot({ global: true }),
     SharedModule,
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],

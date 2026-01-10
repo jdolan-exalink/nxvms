@@ -16,52 +16,43 @@ export class EventsService {
     @InjectRepository(CameraEntity)
     private cameraRepository: Repository<CameraEntity>,
     private rulesService: RulesService,
-  ) {}
+  ) { }
 
-  @OnEvent('frigate.event')
-  async handleFrigateEvent(payload: any) {
-    const { before, after, type, serverId } = payload;
-    const eventId = after.id;
+  @OnEvent('ai.event.normalized')
+  async handleNormalizedAiEvent(eventData: any) {
+    this.logger.log(`[AI HUB] Received ${eventData.engine} event: ${eventData.type} (${eventData.category})`);
 
-    this.logger.debug(`Processing event ${type} for ${after.camera} on server ${serverId}: ${eventId}`);
+    let camera = null;
+    if (eventData.cameraId) {
+      camera = await this.cameraRepository.findOneBy({ id: eventData.cameraId });
+    } else if (eventData.cameraName) {
+      camera = await this.cameraRepository.findOneBy({ name: eventData.cameraName });
+    }
 
-    // Find camera in our DB using name AND serverId for precision
-    const camera = await this.cameraRepository.findOne({
-      where: { 
-        frigateCameraName: after.camera,
-        serverId: serverId
-      }
+    const event = this.eventRepository.create({
+      engine: eventData.engine || 'generic',
+      category: eventData.category || 'object_detection',
+      severity: eventData.severity || 'info',
+      type: eventData.type,
+      externalId: eventData.externalId,
+      score: eventData.score,
+      box: eventData.box,
+      attributes: eventData.attributes || {},
+      cameraName: camera?.name || eventData.cameraName,
+      serverId: camera?.serverId || eventData.serverId,
+      camera: camera,
+      startTime: eventData.startTime || new Date(),
+      endTime: eventData.endTime,
+      hasClip: eventData.hasClip || false,
+      hasSnapshot: eventData.hasSnapshot || false,
     });
 
-    let event = await this.eventRepository.findOne({ where: { externalId: eventId } });
-
-    if (!event) {
-      event = this.eventRepository.create({
-        externalId: eventId,
-        type: after.label,
-        cameraName: after.camera,
-        serverId: serverId || camera?.serverId,
-        camera: camera,
-        startTime: new Date(after.start_time * 1000),
-      });
-    }
-
-    // Update with latest data
-    event.score = after.top_score;
-    event.box = after.box;
-    event.hasClip = after.has_clip;
-    event.hasSnapshot = after.has_snapshot;
-    
-    if (type === 'end') {
-      event.endTime = new Date(after.end_time * 1000);
-    }
-
-    await this.eventRepository.save(event);
-
-    if (type === 'new' || (type === 'update' && !before.person && after.person)) {
-      this.checkRules(event);
-    }
+    const savedEvent = await this.eventRepository.save(event);
+    this.checkRules(savedEvent);
+    return savedEvent;
   }
+
+
 
   private checkRules(event: DetectionEventEntity) {
     this.rulesService.evaluate(event).catch(err => {
@@ -70,11 +61,14 @@ export class EventsService {
   }
 
   async findAll(query: any) {
-    const { type, camera, limit = 50, offset = 0 } = query;
+    const { type, camera, category, severity, engine, limit = 50, offset = 0 } = query;
     const [items, total] = await this.eventRepository.findAndCount({
       where: {
         ...(type && { type }),
         ...(camera && { cameraName: camera }),
+        ...(category && { category }),
+        ...(severity && { severity }),
+        ...(engine && { engine }),
       },
       order: { startTime: 'DESC' },
       take: limit,
@@ -85,10 +79,12 @@ export class EventsService {
     return {
       items: items.map(event => ({
         id: event.id,
+        engine: event.engine,
+        category: event.category,
+        severity: event.severity,
         type: event.type,
-        severity: event.score && event.score > 0.8 ? 'critical' : 'info',
         title: `${event.type.toUpperCase()} Detected`,
-        message: `${event.type.toUpperCase()} detected on camera ${event.cameraName} with ${Math.round((event.score || 0) * 100)}% confidence`,
+        message: this.formatEventMessage(event),
         timestamp: event.startTime.toISOString(),
         startTime: event.startTime.toISOString(),
         endTime: event.endTime?.toISOString(),
@@ -97,16 +93,29 @@ export class EventsService {
         serverId: event.serverId,
         acknowledged: false,
         confidence: event.score,
+        attributes: event.attributes,
         metadata: {
           externalId: event.externalId,
           box: event.box,
           hasClip: event.hasClip,
           hasSnapshot: event.hasSnapshot,
+          snapshotPath: event.snapshotPath,
+          clipPath: event.clipPath,
         }
       })),
       total,
       limit,
       offset
     };
+  }
+
+  private formatEventMessage(event: DetectionEventEntity): string {
+    if (event.category === 'lpr') {
+      return `License Plate DETECTED: [${event.attributes.plate}] on ${event.cameraName}`;
+    }
+    if (event.category === 'traffic' && event.attributes.speed) {
+      return `Speed Violation: ${event.attributes.speed}km/h recorded on ${event.cameraName}`;
+    }
+    return `${event.type.toUpperCase()} detected on camera ${event.cameraName} (${Math.round((event.score || 0) * 100)}% confidence)`;
   }
 }

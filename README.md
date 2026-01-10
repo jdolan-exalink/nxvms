@@ -125,7 +125,53 @@ Server URL: http://localhost:3000/api/v1
 | **Database UI** | http://localhost:8080 | Adminer (SQL browser) |
 | **Backend** | http://localhost:3000 | API server |
 
+## 📹 Recording Configuration
+
+The recording system is fully configurable via environment variables to support different deployment scenarios.
+
+### Quick Setup
+
+1. **Copy the example environment file**:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit recording paths** in `.env`:
+   ```bash
+   # Windows
+   RECORDING_HOST_PATH=D:\cctv
+   
+   # Linux
+   RECORDING_HOST_PATH=/mnt/storage/cctv
+   
+   # Common container path (recommended)
+   RECORDING_CONTAINER_PATH=/mnt/cctv
+   ```
+
+3. **Create the directory** on your host:
+   ```bash
+   mkdir -p D:\cctv  # Windows
+   # or
+   mkdir -p /mnt/storage/cctv  # Linux
+   ```
+
+4. **Start services**:
+   ```bash
+   docker-compose up -d
+   ```
+
+### Key Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `RECORDING_HOST_PATH` | Path on your host machine where recordings are saved | `D:\cctv` |
+| `RECORDING_CONTAINER_PATH` | Path inside Docker container | `/mnt/cctv` |
+| `STORAGE_PATH` | System storage for temporary files (HLS, chunks) | `/mnt/nxvms/storage` |
+
+For detailed configuration, troubleshooting, and best practices, see **[RECORDING_CONFIGURATION.md](./RECORDING_CONFIGURATION.md)**.
+
 ## 📚 Documentation
+
 
 - **[TESTING.md](./TESTING.md)** - Comprehensive testing guide
 - **[plans/01-architecture-overview.md](./plans/01-architecture-overview.md)** - System architecture

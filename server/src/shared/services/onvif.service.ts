@@ -10,7 +10,7 @@ export class OnvifService {
       const cameras: any[] = [];
 
       this.logger.log("Starting ONVIF discovery...");
-      
+
       onvif.Discovery.on("device", (cam) => {
         this.logger.log(`Discovered camera: ${cam.hostname}`);
         cameras.push({
@@ -35,7 +35,7 @@ export class OnvifService {
   async probeSpecificIp(ip: string, port = 80, timeout = 3000): Promise<any | null> {
     return new Promise((resolve) => {
       this.logger.log(`Probing specific IP: ${ip}:${port}`);
-      
+
       const cam = new onvif.Cam({
         hostname: ip,
         port: port,
@@ -95,6 +95,65 @@ export class OnvifService {
       });
     } catch (error) {
       this.logger.error(`Failed to get stream URI for ${hostname}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Conceptual implementation for ONVIF Event Subscription
+   * In a real environment, this would set up a PullPoint or a Webhook.
+   */
+  async subscribeToEvents(cameraId: string, credentials: any, eventEmitter: any) {
+    this.logger.log(`Subscribing to ONVIF events for camera ${cameraId}...`);
+
+    const cam = new onvif.Cam({
+      hostname: credentials.address,
+      username: credentials.username,
+      password: credentials.password
+    }, (err) => {
+      if (err) {
+        this.logger.error(`Event subscription pre-check failed for camera ${cameraId}: ${err.message}`);
+        return;
+      }
+
+      // Conceptual: Listen for 'event' or use getEventService
+      cam.on('event', (data: any) => {
+        this.logger.debug(`ONVIF Raw Event from ${cameraId}: ${JSON.stringify(data)}`);
+
+        // Normalize ONVIF Motion
+        if (data.topic && data.topic.includes('RuleEngine/CellMotionDetector')) {
+          const event = {
+            engine: 'onvif',
+            category: 'perimeter',
+            severity: 'warning',
+            type: 'motion',
+            externalId: `onvif_${Date.now()}`,
+            cameraId: cameraId,
+            score: 1.0,
+            startTime: new Date()
+          };
+          eventEmitter.emit('ai.event.normalized', event);
+        }
+      });
+    });
+  }
+
+  async getSnapshotUri(hostname: string, profileToken: string, username?: string, password?: string): Promise<string | null> {
+    try {
+      const cam = new onvif.Cam({
+        hostname,
+        username,
+        password,
+      });
+
+      return await new Promise((resolve, reject) => {
+        cam.getSnapshotUri({ profileToken }, (err, res) => {
+          if (err) return reject(err);
+          resolve(res.uri);
+        });
+      });
+    } catch (error) {
+      this.logger.error(`Failed to get snapshot URI for ${hostname}:`, error);
       return null;
     }
   }

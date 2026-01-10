@@ -43,6 +43,16 @@ export class StreamEntity {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ type: 'jsonb', nullable: true })
+  tuning: {
+    bufferSize?: number;
+    jitterBuffer?: number;
+    rtspTransport?: 'tcp' | 'udp' | 'http';
+    packetLossCompensation?: boolean;
+    analyzeDuration?: number;
+    probeSize?: number;
+  };
+
   @CreateDateColumn()
   createdAt: Date;
 

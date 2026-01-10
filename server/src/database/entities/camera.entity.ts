@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { UserEntity } from './user.entity';
 import { StreamEntity } from './stream.entity';
 import { DirectoryServerEntity } from './directory-server.entity';
+import { RecordingScheduleEntity, RecordingMode } from './recording-schedule.entity';
 
 export enum CameraStatus {
   ONLINE = 'online',
@@ -12,6 +13,7 @@ export enum CameraStatus {
 }
 
 @Entity('cameras')
+
 @Index(['serverId', 'onvifId'], { unique: true })
 @Index(['status'])
 export class CameraEntity {
@@ -70,6 +72,9 @@ export class CameraEntity {
   @Column({ type: 'jsonb', nullable: true })
   location: { latitude?: number; longitude?: number; address?: string };
 
+  @Column({ type: 'int', default: 30 })
+  retentionDays: number;
+
   @Column({ type: 'uuid', nullable: true })
   createdById: string;
 
@@ -85,4 +90,14 @@ export class CameraEntity {
 
   @OneToMany(() => StreamEntity, (stream) => stream.camera)
   streams: StreamEntity[];
+
+  @OneToMany(() => RecordingScheduleEntity, (schedule) => schedule.camera)
+  recordingSchedules: RecordingScheduleEntity[];
+
+  @Column({
+    type: 'enum',
+    enum: RecordingMode,
+    default: RecordingMode.MOTION_ONLY
+  })
+  recordingMode: RecordingMode;
 }

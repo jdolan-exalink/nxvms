@@ -14,12 +14,30 @@ async function bootstrap() {
     // app.setGlobalPrefix('api/v1');  // COMMENTED OUT - routes already have it
     console.log('3. Global prefix skipped (already in controllers)');
 
-    app.useGlobalPipes(new ValidationPipe({ 
-      whitelist: true,
-      forbidNonWhitelisted: false, // Allow extra fields to be sent but not mapped to DTO
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: false,
+      forbidNonWhitelisted: false,
       transform: true,
     }));
     console.log('4. Validation pipe added');
+
+    app.useGlobalFilters(new (class implements ExceptionFilter {
+      catch(exception: any, host: any) {
+        const ctx = host.switchToHttp();
+        const response = ctx.getResponse();
+        const request = ctx.getRequest();
+        const status = exception.getStatus ? exception.getStatus() : 500;
+        console.error(`[GlobalExceptionFilter] ${request.method} ${request.url} - Status: ${status}`);
+        console.error(exception.stack || exception);
+        response.status(status).send({
+          statusCode: status,
+          message: exception.message || 'Internal server error',
+          timestamp: new Date().toISOString(),
+          path: request.url,
+        });
+      }
+    })());
+    console.log('4.1 Global Exception Filter added');
 
     // Configure CORS - supports wildcard (*) or comma-separated list
     const corsOriginEnv = process.env.CORS_ORIGIN || '*';
@@ -28,7 +46,7 @@ async function bootstrap() {
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     };
-    
+
     if (corsOriginEnv === '*') {
       // Wildcard: accept all origins
       corsConfig.origin = true;
@@ -39,7 +57,7 @@ async function bootstrap() {
       // Single origin
       corsConfig.origin = corsOriginEnv;
     }
-    
+
     app.enableCors(corsConfig);
     console.log(`5. CORS enabled for: ${corsOriginEnv}`);
 

@@ -17,6 +17,9 @@ export class RecordingSegmentEntity {
   @Column({ type: 'uuid' })
   streamId: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  storageLocationId: string;
+
   @Column({ type: 'timestamp' })
   startTime: Date;
 
@@ -40,6 +43,9 @@ export class RecordingSegmentEntity {
 
   @Column({ type: 'boolean', default: false })
   isArchived: boolean;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  checksum: string;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -10,7 +10,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagg
 @UseGuards(JwtAuthGuard)
 @Controller('api/v1/playback')
 export class PlaybackController {
-  constructor(private playbackService: PlaybackService) {}
+  constructor(private playbackService: PlaybackService) { }
 
   @Get('stream/:cameraId')
   @ApiOperation({ summary: 'Get HLS stream for camera' })

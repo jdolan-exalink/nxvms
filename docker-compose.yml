@@ -15,7 +15,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./server/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nxvms}']
+      test: [ 'CMD-SHELL', 'pg_isready -U ${DB_USER:-nxvms}' ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
       - nxvms_network
     restart: unless-stopped
     # Security
-    user: "70:70"  # postgres user in Alpine Linux
+    user: "70:70" # postgres user in Alpine Linux
     cap_drop:
       - ALL
     cap_add:
@@ -51,8 +51,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-nxvms_password}
       DB_NAME: ${DB_NAME:-nxvms}
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
-      STORAGE_PATH: /mnt/nxvms/storage
+      # Storage Path: Usa la ruta del contenedor de grabaciones si está configurada, sino usa el default
+      STORAGE_PATH: ${RECORDING_CONTAINER_PATH:-/mnt/nxvms/storage}
       FFMPEG_PATH: /usr/bin/ffmpeg
+      FFPROBE_PATH: /usr/bin/ffprobe
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # Integrations
@@ -66,13 +68,15 @@ services:
         condition: service_healthy
     volumes:
       - nxvms_storage:/mnt/nxvms/storage
+      # Montaje configurable para grabaciones - usa variables de entorno
+      - ${RECORDING_HOST_PATH:-D:\cctv}:${RECORDING_CONTAINER_PATH:-/mnt/cctv}
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     networks:
       - nxvms_network
     restart: unless-stopped
     # Security
-    user: "1001:1001"  # nodejs user created in Dockerfile
+    user: "1001:1001" # nodejs user created in Dockerfile
     cap_drop:
       - ALL
     cap_add:
@@ -98,7 +102,7 @@ services:
       - nxvms_network
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5173/']
+      test: [ 'CMD', 'curl', '-f', 'http://localhost:5173/' ]
       interval: 30s
       timeout: 10s
       retries: 3

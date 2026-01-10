@@ -24,6 +24,9 @@ import {
   SystemMetrics,
   DirectoryServer,
   PaginatedResponse,
+  RecordingScheduleItem,
+  StorageLocation,
+  LookupList,
 } from './types';
 
 // ============================================================================
@@ -101,6 +104,8 @@ export class ApiClient {
   private accessToken: string | null = null;
   private refreshTokenValue: string | null = null;
   private refreshPromise: Promise<void> | null = null;
+  private isRefreshing = false;
+  private refreshSubscribers: ((token: string) => void)[] = [];
 
   constructor(baseURL?: string) {
     // Use provided URL, auto-detected URL, or fallback to MOCK_SERVER_URL
@@ -200,22 +205,44 @@ export class ApiClient {
         ) {
           originalRequest._retry = true;
 
-          try {
-            await this.refreshAccessToken();
-            if (this.accessToken) {
-              originalRequest.headers.Authorization = `Bearer ${this.accessToken}`;
+          if (!this.isRefreshing) {
+            this.isRefreshing = true;
+            try {
+              await this.refreshAccessToken();
+              if (this.accessToken) {
+                originalRequest.headers.Authorization = `Bearer ${this.accessToken}`;
+                this.onTokenRefreshed(this.accessToken);
+              }
+              return this.client(originalRequest);
+            } catch (refreshError) {
+              this.clearTokens();
+              window.location.href = '/login';
+              return Promise.reject(refreshError);
+            } finally {
+              this.isRefreshing = false;
             }
-            return this.client(originalRequest);
-          } catch (refreshError) {
-            this.clearTokens();
-            window.location.href = '/login';
-            return Promise.reject(refreshError);
+          } else {
+            // Queue request if token refresh is already in progress
+            return new Promise((resolve) => {
+              this.subscribeTokenRefresh((token: string) => {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+                resolve(this.client(originalRequest));
+              });
+            });
           }
         }
-
         return Promise.reject(error);
       }
     );
+  }
+
+  private subscribeTokenRefresh(cb: (token: string) => void) {
+    this.refreshSubscribers.push(cb);
+  }
+
+  private onTokenRefreshed(token: string) {
+    this.refreshSubscribers.map((cb) => cb(token));
+    this.refreshSubscribers = [];
   }
 
   // ============================================================================
@@ -234,7 +261,7 @@ export class ApiClient {
     try {
       const loginData = { username: credentials.username, password: credentials.password };
       console.log('[ApiClient] 📤 Sending login request to:', loginUrl);
-      
+
       const response = await this.client.post<any>(
         'auth/login',
         loginData
@@ -259,37 +286,49 @@ export class ApiClient {
       }
 
       throw new Error(response.data.error?.message || 'Login failed - invalid response format');
-    } catch (error: any) {
-      // Detailed error logging for network/CORS issues
-      const errorInfo = {
-        name: error.name,
-        message: error.message,
-        code: error.code,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        hasResponse: !!error.response,
-        responseData: error.response?.data,
-        config: error.config ? {
-          url: error.config.url,
-          method: error.config.method,
-          baseURL: error.config.baseURL,
-          headers: error.config.headers,
-        } : null,
-        isNetworkError: error.code === 'ERR_NETWORK' || error.message.includes('Network'),
-        isCorsError: error.message.includes('CORS') || error.code === 'ERR_CORS',
-      };
-      
+    } catch (error: unknown) {
+      let errorMessage = 'Login failed';
+      let errorInfo: Record<string, any> = {};
+
+      if (axios.isAxiosError(error)) {
+        errorInfo = {
+          name: error.name,
+          message: error.message,
+          code: error.code,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          hasResponse: !!error.response,
+          responseData: error.response?.data,
+          config: error.config ? {
+            url: error.config.url,
+            method: error.config.method,
+            baseURL: error.config.baseURL,
+            headers: error.config.headers,
+          } : null,
+          isNetworkError: error.code === 'ERR_NETWORK' || error.message.includes('Network'),
+          isCorsError: error.message.includes('CORS') || error.code === 'ERR_CORS',
+        };
+
+        if (errorInfo.isCorsError) {
+          errorMessage = 'CORS error: Server rejected the request. Check if server has CORS enabled.';
+        } else if (errorInfo.isNetworkError) {
+          errorMessage = `Network error: Unable to reach ${loginUrl}. Check if server is running and accessible.`;
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+        errorInfo = { message: error.message, name: error.name };
+      } else {
+        errorInfo = { rawError: error };
+      }
+
       console.error('[ApiClient] ❌ Login error (detailed):', errorInfo);
       console.error('[ApiClient] Full error object:', error);
-      
-      // Determine error message
-      if (errorInfo.isCorsError) {
-        throw new Error('CORS error: Server rejected the request. Check if server has CORS enabled.');
-      } else if (errorInfo.isNetworkError) {
-        throw new Error(`Network error: Unable to reach ${loginUrl}. Check if server is running and accessible.`);
-      }
-      
-      throw new Error(error.response?.data?.message || error.message || 'Login failed');
+
+      throw new Error(errorMessage);
     }
   }
 
@@ -333,6 +372,16 @@ export class ApiClient {
     throw new Error(response.data.error?.message || 'Failed to get resource tree');
   }
 
+  async getCameras(serverId?: string): Promise<Camera[]> {
+    const response = await this.client.get<ApiResponse<Camera[]>>('cameras', {
+      params: { serverId }
+    });
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any).data || [];
+  }
+
   async getCamera(cameraId: string): Promise<Camera> {
     const response = await this.client.get<ApiResponse<{ camera: Camera }>>(
       `cameras/${cameraId}`
@@ -343,9 +392,9 @@ export class ApiClient {
     }
 
     // Fallback if not wrapped
-    if (response.data) return response.data as any;
+    if (response.data && (response.data as any).camera) return (response.data as any).camera;
 
-    throw new Error(response.data.error?.message || 'Failed to get camera');
+    throw new Error(response.data?.error?.message || 'Failed to get camera');
   }
 
   async createCamera(data: any): Promise<Camera> {
@@ -359,9 +408,9 @@ export class ApiClient {
     }
 
     // Fallback if not wrapped
-    if (response.data) return response.data as any;
+    if (response.data && (response.data as any).camera) return (response.data as any).camera;
 
-    throw new Error(response.data.error?.message || 'Failed to create camera');
+    throw new Error(response.data?.error?.message || 'Failed to create camera');
   }
 
   async updateCamera(cameraId: string, data: any): Promise<Camera> {
@@ -375,13 +424,13 @@ export class ApiClient {
     }
 
     // Fallback if not wrapped
-    if (response.data) return response.data as any;
+    if (response.data && (response.data as any).camera) return (response.data as any).camera;
 
-    throw new Error(response.data.error?.message || 'Failed to update camera');
+    throw new Error(response.data?.error?.message || 'Failed to update camera');
   }
 
   async deleteCamera(cameraId: string): Promise<void> {
-    const response = await this.client.delete<ApiResponse<{}>>(
+    const response = await this.client.delete<any>(
       `cameras/${cameraId}`
     );
 
@@ -390,7 +439,50 @@ export class ApiClient {
     }
   }
 
-  async discoverOnvifCameras(serverId: string): Promise<any[]> {
+  async getCameraROIs(cameraId: string): Promise<any[]> {
+    const response = await this.client.get<ApiResponse<any[]>>(`cameras/${cameraId}/rois`);
+    if (response.data.success) return response.data.data || [];
+    return [];
+  }
+
+  async saveCameraROIs(cameraId: string, rois: any[]): Promise<void> {
+    const response = await this.client.post<ApiResponse<any>>(`cameras/${cameraId}/rois`, rois);
+    if (!response.data.success) throw new Error(response.data.error?.message || 'Failed to save ROIs');
+  }
+
+  // Recording Schedules
+  async getCameraSchedule(cameraId: string): Promise<RecordingScheduleItem[]> {
+    const response = await this.client.get<ApiResponse<RecordingScheduleItem[]>>(
+      `cameras / ${cameraId}/schedule`
+    );
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any).data || [];
+  }
+
+  async updateCameraSchedule(cameraId: string, schedule: any[]): Promise<RecordingScheduleItem[]> {
+    const response = await this.client.put<ApiResponse<RecordingScheduleItem[]>>(
+      `cameras/${cameraId}/schedule`,
+      { schedule }
+    );
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any).data;
+  }
+
+  async copyCameraSchedule(cameraId: string, targetCameraIds: string[], includeArchiveLengthSettings = false): Promise<void> {
+    const response = await this.client.post<ApiResponse<void>>(
+      `cameras/${cameraId}/copy-schedule`,
+      { targetCameraIds, includeArchiveLengthSettings }
+    );
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || 'Failed to copy schedule');
+    }
+  }
+
+  async discoverOnvifCameras(): Promise<any[]> {
     const response = await this.client.get<ApiResponse<{ cameras: any[] }>>(
       'cameras/discover'
     );
@@ -404,6 +496,28 @@ export class ApiClient {
     if ((response.data as any).cameras) return (response.data as any).cameras;
 
     throw new Error(response.data.error?.message || 'Failed to discover cameras');
+  }
+
+  // ============================================================================
+  // FRIGATE INTEGRATION
+  // ============================================================================
+
+  async getFrigateVersion(serverId: string): Promise<string> {
+    const response = await this.client.get<ApiResponse<string>>(`frigate/${serverId}/version`);
+    if (response.data.success && response.data.data) return response.data.data;
+    throw new Error(response.data.error?.message || 'Failed to fetch Frigate version');
+  }
+
+  async getFrigateStats(serverId: string): Promise<any> {
+    const response = await this.client.get<ApiResponse<any>>(`frigate/${serverId}/stats`);
+    if (response.data.success) return response.data.data;
+    throw new Error(response.data.error?.message || 'Failed to fetch Frigate stats');
+  }
+
+  async getFrigateConfig(serverId: string): Promise<any> {
+    const response = await this.client.get<ApiResponse<any>>(`frigate/${serverId}/config`);
+    if (response.data.success) return response.data.data;
+    throw new Error(response.data.error?.message || 'Failed to fetch Frigate config');
   }
 
   // ============================================================================
@@ -610,6 +724,57 @@ export class ApiClient {
     throw new Error(response.data.error?.message || 'Failed to get event details');
   }
 
+  // Lookup Lists
+  async getLookupLists(): Promise<LookupList[]> {
+    const response = await this.client.get<ApiResponse<LookupList[]>>('lookup-lists');
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any).data || [];
+  }
+
+  async getLookupList(id: string): Promise<LookupList> {
+    const response = await this.client.get<ApiResponse<LookupList>>(`lookup-lists/${id}`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any).data;
+  }
+
+  async createLookupList(data: any): Promise<LookupList> {
+    const response = await this.client.post<ApiResponse<LookupList>>('lookup-lists', data);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any).data;
+  }
+
+  async updateLookupList(id: string, data: any): Promise<LookupList> {
+    const response = await this.client.put<ApiResponse<LookupList>>(`lookup-lists/${id}`, data);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return (response.data as any).data;
+  }
+
+  async deleteLookupList(id: string): Promise<void> {
+    await this.client.delete(`lookup-lists/${id}`);
+  }
+
+  async startRecording(cameraId: string): Promise<void> {
+    const response = await this.client.post(`cameras/${cameraId}/recording/start`);
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || 'Failed to start recording');
+    }
+  }
+
+  async stopRecording(cameraId: string): Promise<void> {
+    const response = await this.client.post(`cameras/${cameraId}/recording/stop`);
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || 'Failed to stop recording');
+    }
+  }
+
   // ============================================================================
   // BOOKMARKS
   // ============================================================================
@@ -684,7 +849,7 @@ export class ApiClient {
         progress: 0,
         createdBy: '',
         createdAt: new Date().toISOString(),
-      };
+      } as any;
     }
 
     throw new Error(response.data.error?.message || 'Failed to create export');
@@ -726,12 +891,12 @@ export class ApiClient {
   }
 
   // ============================================================================
-  // HEALTH
+  // HEALTH & METRICS
   // ============================================================================
 
   async getSystemHealth(): Promise<SystemHealth> {
     const response = await this.client.get<ApiResponse<SystemHealth>>(
-      'health'
+      'system/health'
     );
 
     if (response.data.success && response.data.data) {
@@ -741,56 +906,45 @@ export class ApiClient {
     throw new Error(response.data.error?.message || 'Failed to get system health');
   }
 
-  async getCamerasHealth(): Promise<any> {
-    const response = await this.client.get<ApiResponse<any>>(
-      'health/cameras'
+  async getSystemMetrics(range?: '1h' | '6h' | '24h' | '7d'): Promise<SystemMetrics[]> {
+    const response = await this.client.get<ApiResponse<SystemMetrics[]>>(
+      'system/metrics',
+      { params: { range } }
     );
 
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
 
-    throw new Error(response.data.error?.message || 'Failed to get cameras health');
+    throw new Error(response.data.error?.message || 'Failed to get system metrics');
   }
 
-  async getStorageHealth(): Promise<StoragePool[]> {
-    const response = await this.client.get<ApiResponse<{ pools: StoragePool[] }>>(
-      'health/storage'
-    );
-
-    if (response.data.success && response.data.data) {
-      return response.data.data.pools;
-    }
-
-    throw new Error(response.data.error?.message || 'Failed to get storage health');
-  }
-
-  async getMetrics(): Promise<SystemMetrics> {
-    const response = await this.client.get<ApiResponse<SystemMetrics>>(
-      'health/metrics'
+  async getStoragePools(): Promise<StoragePool[]> {
+    const response = await this.client.get<ApiResponse<StoragePool[]>>(
+      'system/storage'
     );
 
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
 
-    throw new Error(response.data.error?.message || 'Failed to get metrics');
+    throw new Error(response.data.error?.message || 'Failed to get storage pools');
   }
 
   // ============================================================================
-  // SERVER DIRECTORY
+  // DIRECTORY SERVICE
   // ============================================================================
 
-  async getServerDirectory(): Promise<DirectoryServer[]> {
-    const response = await this.client.get<ApiResponse<{ servers: DirectoryServer[] }>>(
+  async getDirectoryServers(): Promise<DirectoryServer[]> {
+    const response = await this.client.get<ApiResponse<DirectoryServer[]>>(
       'directory/servers'
     );
 
     if (response.data.success && response.data.data) {
-      return response.data.data.servers;
+      return response.data.data;
     }
 
-    throw new Error(response.data.error?.message || 'Failed to get server directory');
+    throw new Error(response.data.error?.message || 'Failed to get directory servers');
   }
 
   async addServerToDirectory(data: any): Promise<DirectoryServer> {
@@ -978,11 +1132,89 @@ export class ApiClient {
     }
   }
 
+  async testServerUrl(url: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await this.client.post<ApiResponse<any>>(`servers/test-url`, { url });
+      if (response.data.success) {
+        return { success: true, message: 'Conexión exitosa' };
+      }
+      return { success: false, message: response.data.error?.message || 'Error de conexión' };
+    } catch (err: any) {
+      return { success: false, message: err.message };
+    }
+  }
+  async getSystemDrives(serverId: string): Promise<any[]> {
+    const response = await this.client.get<ApiResponse<any[]>>(`servers/${serverId}/drives`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return [];
+  }
+
+  async browseSystemPath(serverId: string, path: string): Promise<any[]> {
+    const response = await this.client.post<ApiResponse<any[]>>(`servers/${serverId}/browse`, { path });
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return [];
+  }
+
+  async createSystemPath(serverId: string, path: string): Promise<void> {
+    const response = await this.client.post<ApiResponse<void>>(`servers/${serverId}/mkdir`, { path });
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || 'Failed to create directory');
+    }
+  }
+
   async deleteServer(id: string): Promise<void> {
     const response = await this.client.delete<ApiResponse<void>>(`servers/${id}`);
     if (!response.data.success) {
       throw new Error(response.data.error?.message || 'Failed to delete server');
     }
+  }
+
+  // Server Storage
+  async getServerStorage(serverId: string): Promise<StorageLocation[]> {
+    const response = await this.client.get<ApiResponse<StorageLocation[]>>(`system/storage/locations`, {
+      params: { serverId }
+    });
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return [];
+  }
+
+  async addServerStorage(data: Partial<StorageLocation>): Promise<StorageLocation> {
+    const response = await this.client.post<ApiResponse<StorageLocation>>(`system/storage/locations`, data);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to add storage');
+  }
+
+  async updateServerStorage(locationId: string, data: Partial<StorageLocation>): Promise<StorageLocation> {
+    const response = await this.client.put<ApiResponse<StorageLocation>>(`system/storage/locations/${locationId}`, data);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to update storage');
+  }
+
+  async deleteServerStorage(locationId: string): Promise<void> {
+    const response = await this.client.delete<ApiResponse<void>>(`system/storage/locations/${locationId}`);
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || 'Failed to delete storage');
+    }
+  }
+
+  async getStorageStats(serverId: string): Promise<any[]> {
+    const response = await this.client.get<ApiResponse<any[]>>(`system/storage/stats`, {
+      params: { serverId }
+    });
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    return [];
   }
 
   async importFrigateCameras(serverId: string): Promise<any[]> {
@@ -993,16 +1225,8 @@ export class ApiClient {
     throw new Error(response.data.error?.message || 'Failed to import cameras');
   }
 
-  async discoverOnvifCameras(serverId: string): Promise<any[]> {
-    const response = await this.client.get<ApiResponse<any[]>>(`cameras/discover?serverId=${serverId}`);
-    if (response.data.success && response.data.data) {
-      return response.data.data;
-    }
-    return (response.data as any) || [];
-  }
-
   async connectOnvifCamera(data: { address: string; username?: string; password?: string; serverId?: string }): Promise<any> {
-    const response = await this.client.post<ApiResponse<any>>('cameras/connect-onvif', data);
+    const response = await this.client.post<any>('cameras/connect-onvif', data);
     if (response.data.success) {
       return response.data;
     }
@@ -1021,21 +1245,6 @@ export class ApiClient {
       return response.data.data;
     }
     return (response.data as any);
-  }
-
-  async getTimeline(cameraId: string, startDate?: string, endDate?: string): Promise<{ segments: any[], total: number }> {
-    const params: any = {};
-    if (startDate) params.startDate = startDate;
-    if (endDate) params.endDate = endDate;
-    
-    const response = await this.client.get<ApiResponse<{ segments: any[], total: number }>>(
-      `playback/timeline/${cameraId}`,
-      { params }
-    );
-    if (response.data.success && response.data.data) {
-      return response.data.data;
-    }
-    return (response.data as any) || { segments: [], total: 0 };
   }
 }
 

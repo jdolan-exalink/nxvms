@@ -4,6 +4,7 @@ import { CurrentUser } from '@/auth/decorators/current-user.decorator';
 import { UserEntity } from '@/database/entities';
 import { CamerasService } from './cameras.service';
 import { CreateCameraDto, UpdateCameraDto } from './dto/camera.dto';
+import { UpdateRecordingScheduleDto, CopyScheduleDto } from './dto/recording-schedule.dto';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('Cameras')
@@ -148,8 +149,24 @@ export class CamerasController {
     @Body() updateCameraDto: UpdateCameraDto,
     @CurrentUser() user: UserEntity,
   ) {
-    const camera = await this.camerasService.updateCamera(cameraId, updateCameraDto, user.id);
-    return { success: true, data: camera };
+    console.log('[CamerasController] ========================================');
+    console.log('[CamerasController] PUT /cameras/:id called');
+    console.log('[CamerasController] Camera ID:', cameraId);
+    console.log('[CamerasController] User:', user?.username || 'unknown');
+    console.log('[CamerasController] DTO received:', JSON.stringify(updateCameraDto, null, 2));
+    console.log('[CamerasController] ========================================');
+
+    try {
+      const camera = await this.camerasService.updateCamera(cameraId, updateCameraDto, user.id);
+      console.log('[CamerasController] ✅ Update successful');
+      return { success: true, data: camera };
+    } catch (error) {
+      console.error('[CamerasController] ❌ Update failed');
+      console.error('[CamerasController] Error message:', error.message);
+      console.error('[CamerasController] Error stack:', error.stack);
+      console.error('[CamerasController] Error type:', error.constructor.name);
+      throw error;
+    }
   }
 
   @Delete(':id')
@@ -192,5 +209,52 @@ export class CamerasController {
   async disableDetection(@Param('id') cameraId: string) {
     const result = await this.camerasService.setDetection(cameraId, false);
     return { success: true, data: result };
+  }
+
+  @Get(':id/schedule')
+  @ApiOperation({ summary: 'Get recording schedule for a camera' })
+  async getSchedule(@Param('id') cameraId: string) {
+    const schedule = await this.camerasService.getRecordingSchedule(cameraId);
+    return { success: true, data: schedule };
+  }
+
+  @Put(':id/schedule')
+  @ApiOperation({ summary: 'Update recording schedule for a camera' })
+  async updateSchedule(
+    @Param('id') cameraId: string,
+    @Body() dto: UpdateRecordingScheduleDto,
+    @CurrentUser() user: UserEntity,
+  ) {
+    const schedule = await this.camerasService.updateRecordingSchedule(cameraId, dto, user.id);
+    return { success: true, data: schedule };
+  }
+
+  @Post(':id/copy-schedule')
+  @ApiOperation({ summary: 'Copy recording schedule to other cameras' })
+  async copySchedule(
+    @Param('id') cameraId: string,
+    @Body() dto: CopyScheduleDto,
+    @CurrentUser() user: UserEntity,
+  ) {
+    await this.camerasService.copyRecordingSchedule(cameraId, dto, user.id);
+    return { success: true };
+  }
+
+  @Get(':id/rois')
+  @ApiOperation({ summary: 'Get camera ROIs (zones)' })
+  async getROIs(@Param('id') cameraId: string) {
+    const camera = await this.camerasService.getCameraById(cameraId);
+    return { success: true, data: camera.zones || [] };
+  }
+
+  @Post(':id/rois')
+  @ApiOperation({ summary: 'Save camera ROIs (zones)' })
+  async saveROIs(
+    @Param('id') cameraId: string,
+    @Body() rois: any[],
+    @CurrentUser() user: UserEntity,
+  ) {
+    const camera = await this.camerasService.updateCamera(cameraId, { zones: rois } as any, user.id);
+    return { success: true, data: camera.zones };
   }
 }

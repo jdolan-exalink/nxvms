@@ -5,6 +5,8 @@ import { Repository } from 'typeorm';
 import { DirectoryServerEntity } from '@/database/entities';
 import axios from 'axios';
 
+import { FrigateService } from './frigate.service';
+
 @ApiTags('Frigate')
 @Controller('api/v1/frigate')
 export class FrigateController {
@@ -13,7 +15,8 @@ export class FrigateController {
   constructor(
     @InjectRepository(DirectoryServerEntity)
     private serverRepository: Repository<DirectoryServerEntity>,
-  ) {}
+    private frigateService: FrigateService,
+  ) { }
 
   private async getServerUrl(serverId: string): Promise<string> {
     const server = await this.serverRepository.findOne({ where: { id: serverId } });
@@ -25,7 +28,7 @@ export class FrigateController {
   @ApiOperation({ summary: 'Proxy MSE stream from Frigate' })
   async proxyMse(
     @Param('serverId') serverId: string,
-    @Param('camera') camera: string, 
+    @Param('camera') camera: string,
     @Res() res: any
   ) {
     try {
@@ -47,40 +50,40 @@ export class FrigateController {
     @Res() res: any
   ) {
     try {
-      const baseUrl = await this.getServerUrl(serverId);
-      
+      const client = await this.frigateService.getClient(serverId);
+
       const fullPath = req.raw.url || req.url;
       const matchPattern = `/proxy/${serverId}/api/`;
       const urlParts = fullPath.split(matchPattern);
-      
+
       if (urlParts.length < 2) {
         throw new Error(`Invalid proxy path format in URL: ${fullPath} (Expected pattern: ${matchPattern})`);
       }
-      
-      const relativePath = urlParts[1];
-      const targetUrl = `${baseUrl.replace(/\/$/, '')}/api/${relativePath}`;
-      
-      this.logger.log(`[FRIGATE PROXY] ${req.method} /api/${relativePath} -> ${targetUrl}`);
 
-      const response = await axios({
+      const relativePath = urlParts[1];
+      const targetUrl = `/api/${relativePath}`;
+
+      this.logger.log(`[FRIGATE PROXY] ${req.method} /api/${relativePath} -> ${client.defaults.baseURL}${targetUrl}`);
+
+      const response = await client({
         method: req.method,
         url: targetUrl,
         responseType: 'stream',
-        timeout: 0, 
+        timeout: 0,
         headers: {
           'Accept': req.headers.accept || '*/*',
           'User-Agent': req.headers['user-agent'] || 'NXvms-Server',
           'Connection': 'keep-alive'
         }
       });
-      
+
       const headersToCopy = ['content-type', 'content-length', 'accept-ranges', 'cache-control'];
       headersToCopy.forEach(key => {
         if (response.headers[key]) {
           res.header(key, response.headers[key]);
         }
       });
-      
+
       response.data.pipe(res.raw || res);
     } catch (e: any) {
       this.logger.error(`[FRIGATE PROXY] Failed: ${e.message}`);
@@ -96,7 +99,7 @@ export class FrigateController {
   @ApiOperation({ summary: 'Proxy event clip from Frigate' })
   async proxyClip(
     @Param('serverId') serverId: string,
-    @Param('id') id: string, 
+    @Param('id') id: string,
     @Res() res: any
   ) {
     try {
@@ -106,7 +109,7 @@ export class FrigateController {
         url: `${baseUrl}/api/events/${id}/clip.mp4`,
         responseType: 'stream',
       });
-      
+
       res.header('Content-Type', 'video/mp4');
       response.data.pipe(res.raw || res);
     } catch (e) {
@@ -118,21 +121,40 @@ export class FrigateController {
   @ApiOperation({ summary: 'Proxy event snapshot from Frigate' })
   async proxySnapshot(
     @Param('serverId') serverId: string,
-    @Param('id') id: string, 
+    @Param('id') id: string,
     @Res() res: any
   ) {
     try {
-      const baseUrl = await this.getServerUrl(serverId);
-      const response = await axios({
+      const client = await this.frigateService.getClient(serverId);
+      const response = await client({
         method: 'get',
-        url: `${baseUrl}/api/events/${id}/snapshot.jpg`,
+        url: `/api/events/${id}/snapshot.jpg`,
         responseType: 'stream',
       });
-      
+
       res.header('Content-Type', 'image/jpeg');
       response.data.pipe(res.raw || res);
     } catch (e) {
       res.status(500).send('Failed to proxy snapshot');
     }
+  }
+
+  @Get(':serverId/version')
+  async getVersion(@Param('serverId') serverId: string) {
+    const client = await this.frigateService.getClient(serverId);
+    const response = await client.get('/api/version');
+    return { success: true, data: response.data };
+  }
+
+  @Get(':serverId/stats')
+  async getStats(@Param('serverId') serverId: string) {
+    const data = await this.frigateService.getStats(serverId);
+    return { success: true, data };
+  }
+
+  @Get(':serverId/config')
+  async getConfig(@Param('serverId') serverId: string) {
+    const data = await this.frigateService.getConfig(serverId);
+    return { success: true, data };
   }
 }

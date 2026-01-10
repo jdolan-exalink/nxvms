@@ -37,7 +37,7 @@ export class PlaybackService {
     private serverRepository: Repository<DirectoryServerEntity>,
     private ffmpegService: FFmpegService,
     private frigateService: FrigateService,
-  ) {}
+  ) { }
 
   /**
    * Get HLS playlist for a camera stream
@@ -96,7 +96,7 @@ export class PlaybackService {
           if (startDate) params.after = Math.floor(startDate.getTime() / 1000);
           if (endDate) params.before = Math.floor(endDate.getTime() / 1000);
 
-          const client = this.frigateService.getClient(server.url);
+          const client = await this.frigateService.getClient(server.id);
           const response = await client.get('/api/events', { params });
           const events = response.data;
 

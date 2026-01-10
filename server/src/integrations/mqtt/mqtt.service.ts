@@ -17,7 +17,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     private eventEmitter: EventEmitter2,
     @InjectRepository(DirectoryServerEntity)
     private serverRepository: Repository<DirectoryServerEntity>,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     await this.connect();
@@ -65,7 +65,9 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     const defaultBaseTopic = this.configService.get<string>('mqtt.baseTopic') || 'frigate';
     this.client.subscribe(`${defaultBaseTopic}/events`);
     this.client.subscribe(`${defaultBaseTopic}/stats`);
-    
+    this.client.subscribe(`${defaultBaseTopic}/reviews`);
+    this.client.subscribe(`${defaultBaseTopic}/available`);
+
     // Fetch all frigate servers from DB
     const frigateServers = await this.serverRepository.find({
       where: { type: ServerType.FRIGATE }
@@ -76,6 +78,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
         this.logger.log(`Subscribing to remote Frigate: ${server.name} on ${server.mqttBaseTopic}/#`);
         this.client.subscribe(`${server.mqttBaseTopic}/events`);
         this.client.subscribe(`${server.mqttBaseTopic}/stats`);
+        this.client.subscribe(`${server.mqttBaseTopic}/reviews`);
+        this.client.subscribe(`${server.mqttBaseTopic}/available`);
         this.serverTopicMap.set(server.mqttBaseTopic, server.id);
       }
     }
@@ -83,14 +87,14 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     // Map default base topic to a default server or 'local'
     const localServer = await this.serverRepository.findOneBy({ type: ServerType.NX_VM });
     if (localServer) {
-        this.serverTopicMap.set(defaultBaseTopic, localServer.id);
+      this.serverTopicMap.set(defaultBaseTopic, localServer.id);
     }
   }
 
   private handleMessage(topic: string, message: string) {
     try {
       const data = JSON.parse(message);
-      
+
       // Determine which server this belongs to
       let serverId: string | undefined;
       let baseTopicPart: string | undefined;
@@ -106,6 +110,11 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       if (topic === `${baseTopicPart}/events`) {
         this.logger.debug(`Received Frigate event for server ${serverId}: ${data.after?.id}`);
         this.eventEmitter.emit('frigate.event', { ...data, serverId });
+      } else if (topic === `${baseTopicPart}/reviews`) {
+        this.logger.debug(`Received Frigate review for server ${serverId}: ${data.after?.id}`);
+        this.eventEmitter.emit('frigate.review', { ...data, serverId });
+      } else if (topic === `${baseTopicPart}/available`) {
+        this.eventEmitter.emit('frigate.available', { status: message, serverId });
       } else if (topic === `${baseTopicPart}/stats`) {
         this.eventEmitter.emit('frigate.stats', { ...data, serverId });
       } else {

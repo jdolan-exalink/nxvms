@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsUrl, IsUUID, IsBoolean, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsUrl, IsUUID, IsBoolean, IsArray, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { RecordingMode } from '../../database/entities/recording-schedule.entity';
 
 export class CreateCameraDto {
   @ApiProperty({ example: 'Front Door Camera' })
@@ -58,11 +59,31 @@ export class UpdateCameraDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  rtspUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  serverId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsBoolean()
   isRecording?: boolean;
+
+  @ApiPropertyOptional({ enum: RecordingMode })
+  @IsOptional()
+  @IsEnum(RecordingMode)
+  recordingMode?: RecordingMode;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsArray()
   tags?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  zones?: any[];
 }

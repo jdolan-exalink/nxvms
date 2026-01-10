@@ -13,14 +13,13 @@ import {
   Folder,
   MoreVertical,
   CheckCircle2,
-  XCircle,
+  X,
   Circle,
   Plus,
   RefreshCw,
 } from 'lucide-react';
 import { useResourcesStore, useLayoutStore } from '../core/store';
-import { Site, Server as ServerType, Camera, CameraStatus, Group } from '../shared/types';
-import { STATUS_COLORS } from '../shared/constants';
+import { Site, Server as ServerType, Camera, Group, RecordingMode } from '../shared/types';
 import { getApiClient } from '../shared/api-client';
 import AddCameraModal from './AddCameraModal';
 
@@ -80,7 +79,10 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, level, onCameraSelect, select
       case 'Site':
         return <MapPin className="w-4 h-4 text-primary-400" />;
       case 'Server':
-        return <Server className="w-4 h-4 text-primary-400" />;
+        // Celeste para NX, Amarillo para Frigate (igual que en settings)
+        const serverType = (node as ServerType).capabilities?.includes('frigate') ? 'frigate' : 'nx';
+        const serverColor = serverType === 'frigate' ? 'text-yellow-500' : 'text-primary-400';
+        return <Server className={`w-4 h-4 ${serverColor}`} />;
       case 'Camera':
         return <Video className="w-4 h-4 text-primary-400" />;
       default:
@@ -96,15 +98,14 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, level, onCameraSelect, select
       switch (status) {
         case 'online':
         case 'active':
-          return <CheckCircle2 className="w-3 h-3 text-status-online" />;
+          return <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />;
         case 'recording':
-          return <Circle className="w-3 h-3 text-status-recording animate-pulse" fill="currentColor" />;
+          return <Circle className="w-3 h-3 text-red-500 animate-pulse" fill="currentColor" />;
         case 'offline':
         case 'disconnected':
         case 'inactive':
-          return <XCircle className="w-3 h-3 text-status-offline" />;
         case 'error':
-          return <XCircle className="w-3 h-3 text-status-offline" />;
+          return <X className="w-4 h-4 text-red-500 font-bold" />;
         default:
           return <Circle className="w-3 h-3 text-dark-500" />;
       }
@@ -143,7 +144,82 @@ const TreeNode: React.FC<TreeNodeProps> = ({ node, level, onCameraSelect, select
         )}
         {!hasChildren && <div className="w-6" />}
         {getIcon()}
-        <span className={`flex-1 text-sm text-white truncate ${isInGrid ? 'font-bold' : ''}`}>{node.name}</span>
+        {node.__typename === 'Camera' && (
+          <div className="flex flex-col flex-1 gap-0.5 overflow-hidden">
+            <span className={`text-sm text-white truncate ${isInGrid ? 'font-bold' : ''}`}>
+              {(node as Camera).provider === 'frigate' ? ((node as Camera).frigateCameraName || node.name) : node.name}
+            </span>
+            {/* Recording Mode Badge */}
+            {(node as Camera).recordingMode && (
+              <div className="flex items-center gap-1.5">
+                {(() => {
+                  const mode = (node as Camera).recordingMode;
+                  let badgeClass = '';
+                  let text = '';
+
+                  switch (mode) {
+                    case RecordingMode.ALWAYS:
+                      badgeClass = 'bg-red-500/10 text-red-400 border-red-500/20';
+                      text = 'Siempre';
+                      break;
+                    case RecordingMode.MOTION_ONLY:
+                      badgeClass = 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
+                      text = 'Movimiento';
+                      break;
+                    case RecordingMode.MOTION_LOW_RES:
+                      badgeClass = 'bg-orange-500/10 text-orange-400 border-orange-500/20';
+                      text = 'Mov. LowRes';
+                      break;
+                    case RecordingMode.OBJECTS:
+                      badgeClass = 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+                      text = 'Objetos';
+                      break;
+                    case RecordingMode.DO_NOT_RECORD:
+                      badgeClass = 'bg-dark-600/50 text-dark-400 border-dark-600';
+                      text = 'No grabar';
+                      break;
+                    default:
+                      badgeClass = 'bg-dark-600/50 text-dark-400 border-dark-600';
+                      text = 'N/A';
+                  }
+
+                  return (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded border  uppercase font-bold tracking-wider leading-none ${badgeClass}`}>
+                      {text}
+                    </span>
+                  );
+                })()}
+                {/* Provider badge */}
+                {(node as Camera).provider === 'frigate' ? (
+                  <span className="text-[9px] text-yellow-500 uppercase font-bold tracking-wider leading-none">
+                    FRIGATE: {useResourcesStore.getState().sites[0]?.servers.find(s => s.id === (node as Camera).serverId)?.name || 'Unknown'}
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-dark-500 font-mono font-medium leading-none truncate opacity-60">
+                    {(node as Camera).rtspUrl}
+                  </span>
+                )}
+              </div>
+            )}
+            {/* Fallback if no recording mode */}
+            {!(node as Camera).recordingMode && (
+              <>
+                {(node as Camera).provider === 'frigate' ? (
+                  <span className="text-[9px] text-yellow-500 uppercase font-bold tracking-wider leading-none">
+                    FRIGATE: {useResourcesStore.getState().sites[0]?.servers.find(s => s.id === (node as Camera).serverId)?.name || 'Unknown'}
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-dark-500 font-mono font-medium leading-none truncate opacity-60">
+                    {(node as Camera).rtspUrl}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        )}
+        {node.__typename !== 'Camera' && (
+          <span className={`flex-1 text-sm text-white truncate`}>{node.name}</span>
+        )}
         {getStatusIndicator()}
         <button className="p-1 hover:bg-dark-600 rounded transition-colors opacity-0 group-hover:opacity-100">
           <MoreVertical className="w-4 h-4 text-dark-400" />

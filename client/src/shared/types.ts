@@ -65,6 +65,25 @@ export enum StreamType {
   FRIGATE_MSE = 'frigate_mse',
 }
 
+export enum RecordingMode {
+  ALWAYS = 'always',
+  MOTION_ONLY = 'motion_only',
+  OBJECTS = 'objects',
+  MOTION_LOW_RES = 'motion_low_res',
+  DO_NOT_RECORD = 'do_not_record',
+}
+
+export interface RecordingScheduleItem {
+  id?: string;
+  cameraId: string;
+  dayOfWeek: number; // 0-6
+  hour: number; // 0-23
+  mode: RecordingMode;
+  fps?: number;
+  quality?: string;
+  enabled: boolean;
+}
+
 export interface Site {
   id: string;
   name: string;
@@ -110,6 +129,8 @@ export interface Camera {
     address?: string;
   };
   tags: string[];
+  isRecording?: boolean;
+  recordingMode?: RecordingMode;
   createdAt: string;
   updatedAt: string;
   __typename?: 'Camera';
@@ -221,13 +242,21 @@ export interface PlaybackSession {
 export interface Event {
   id: string;
   type: string;
+  engine?: string;
+  category?: string;
+  severity?: string;
+  title?: string;
+  message?: string;
   cameraId: string;
+  cameraName?: string;
   serverId: string;
   startTime: string;
   endTime?: string;
+  timestamp: string;
   confidence?: number;
   thumbnailUrl?: string;
   metadata: Record<string, any>;
+  attributes?: Record<string, any>;
   acknowledged: boolean;
   acknowledgedBy?: string;
   acknowledgedAt?: string;
@@ -302,6 +331,47 @@ export interface StoragePool {
   cameras: string[];
 }
 
+export enum StorageType {
+  LOCAL = 'local',
+  NAS = 'nas',
+  CLOUD = 'cloud',
+  USB = 'usb',
+  BACKUP = 'backup',
+}
+
+export enum RwPolicy {
+  READ_WRITE = 'read_write',
+  READ_ONLY = 'read_only',
+}
+
+export enum StorageRole {
+  MAIN = 'main',
+  BACKUP = 'backup',
+  ANALYTICS = 'analytics',
+}
+
+export interface StorageLocation {
+  id: string;
+  name?: string;
+  serverId: string;
+  type: StorageType;
+  path: string;
+  rwPolicy: RwPolicy;
+  roles: StorageRole[];
+  capacity?: number;
+  reservedPct: number;
+  reservedBytes?: number;
+  quotaBytes?: number;
+  enabled: boolean;
+  status: 'online' | 'offline' | 'error' | 'readonly' | 'degraded';
+  healthDetails?: {
+    lastError?: string;
+    lastCheck?: string;
+    iops?: number;
+    latency?: string;
+  };
+}
+
 export interface SystemMetrics {
   timestamp: string;
   cpu: {
@@ -362,6 +432,28 @@ export interface PaginatedResponse<T> {
   offset: number;
 }
 
+export enum LookupListType {
+  WHITE_LIST = 'white_list',
+  BLACK_LIST = 'black_list',
+  GENERAL = 'general',
+}
+
+export interface LookupList {
+  id: string;
+  name: string;
+  type: LookupListType;
+  items: string[];
+  description?: string;
+}
+
+export interface RuleSchedule {
+  id: string;
+  ruleId: string;
+  dayOfWeek: number;
+  hour: number;
+  enabled: boolean;
+}
+
 // ============================================================================
 // NOTIFICATION TYPES
 // ============================================================================
@@ -410,13 +502,17 @@ export interface LayoutCamera {
 export interface DirectoryServer {
   id: string;
   name: string;
+  description?: string;
   url: string;
-  type: 'frigate' | 'nx_vm';
+  type: 'frigate' | 'nx_vm' | 'recording_node';
   status: ServerStatus;
   lastSeen: string;
   version?: string;
   location?: string;
   mqttBaseTopic?: string;
+  metadata?: any;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================================

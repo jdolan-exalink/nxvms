@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, OneToMany } from 'typeorm';
 import { CameraEntity } from './camera.entity';
+import { StorageLocationEntity } from './storage-location.entity';
 
 export enum ServerType {
   NX_VM = 'nx_vm',
@@ -52,6 +53,9 @@ export class DirectoryServerEntity {
 
   @OneToMany(() => CameraEntity, (camera) => camera.server)
   cameras: CameraEntity[];
+
+  @OneToMany(() => StorageLocationEntity, (location) => location.server)
+  storageLocations: StorageLocationEntity[];
 
   @CreateDateColumn()
   createdAt: Date;

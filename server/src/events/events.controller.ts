@@ -6,9 +6,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @ApiTags('Events')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('events')
+@Controller('api/v1/events')
 export class EventsController {
-  constructor(private eventsService: EventsService) {}
+  constructor(private eventsService: EventsService) { }
 
   @Get()
   @ApiOperation({ summary: 'Get all detection events' })
@@ -18,6 +18,7 @@ export class EventsController {
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
   ) {
-    return this.eventsService.findAll({ type, camera, limit, offset });
+    const result = await this.eventsService.findAll({ type, camera, limit, offset });
+    return { success: true, data: result };
   }
 }

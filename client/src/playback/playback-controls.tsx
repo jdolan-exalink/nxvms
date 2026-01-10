@@ -1,127 +1,67 @@
+// ============================================================================
+// PREMIUM PLAYBACK CONTROLS
+// User interface for scrubbing, speed control, and navigation
+// ============================================================================
+
 import React, { useState } from 'react';
-import { Play, Pause, FastForward, Rewind, Volume2, VolumeX } from 'lucide-react';
+import {
+  Play,
+  Pause,
+  FastForward,
+  Rewind,
+  Volume2,
+  VolumeX,
+  ChevronLeft,
+  ChevronRight,
+  SkipBack,
+  SkipForward,
+  Settings,
+  Gauge
+} from 'lucide-react';
 
 export interface PlaybackControlsProps {
   isPlaying: boolean;
-  currentTime: number;
-  duration: number;
+  currentTime: Date;
   playbackSpeed: number;
   volume: number;
   isMuted: boolean;
   onPlayPause: () => void;
-  onRewind: (seconds: number) => void;
-  onFastForward: (seconds: number) => void;
+  onSeek: (seconds: number) => void; // Relative seek
   onSpeedChange: (speed: number) => void;
   onVolumeChange: (volume: number) => void;
   onToggleMute: () => void;
-  onSeek: (time: number) => void;
+  onSyncToLive?: () => void;
 }
 
 export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
   isPlaying,
   currentTime,
-  duration,
   playbackSpeed,
   volume,
   isMuted,
   onPlayPause,
-  onRewind,
-  onFastForward,
+  onSeek,
   onSpeedChange,
   onVolumeChange,
   onToggleMute,
-  onSeek,
+  onSyncToLive,
 }) => {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-
-  const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    if (hours > 0) {
-      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const speedOptions = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
-
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const container = e.currentTarget;
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, x / rect.width));
-    onSeek(percentage * duration);
-  };
+  const speedOptions = [0.25, 0.5, 1, 2, 4, 8, 16];
 
   return (
-    <div className="w-full bg-dark-900 rounded-lg p-4 space-y-3">
-      {/* Progress bar */}
-      <div
-        className="w-full h-2 bg-dark-700 rounded-full cursor-pointer group hover:h-3 transition-all"
-        onClick={handleProgressClick}
-      >
-        <div
-          className="h-full bg-primary-500 rounded-full transition-all"
-          style={{ width: `${(currentTime / duration) * 100}%` }}
-        />
-      </div>
-
-      {/* Time display */}
-      <div className="flex justify-between text-xs text-dark-400">
-        <span>{formatTime(currentTime)}</span>
-        <span>{formatTime(duration)}</span>
-      </div>
-
-      {/* Controls */}
-      <div className="flex items-center justify-between gap-4">
-        {/* Left controls */}
-        <div className="flex items-center gap-2">
-          {/* Rewind button */}
+    <div className="flex flex-col gap-2 p-3 bg-dark-900/80 backdrop-blur-xl border-t border-white/5 shadow-inner">
+      <div className="flex items-center justify-between px-2">
+        {/* Left Section: Volume & Audio */}
+        <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/5">
           <button
-            onClick={() => onRewind(10)}
-            className="p-2 hover:bg-dark-700 rounded transition-colors text-white hover:text-primary-400"
-            title="Rewind 10s"
+            onClick={onToggleMute}
+            className={`p-2 rounded-lg transition-all ${isMuted || volume === 0 ? 'text-red-400 bg-red-500/10' : 'text-dark-300 hover:text-white hover:bg-white/10'}`}
+            title={isMuted ? 'Unmute' : 'Mute'}
           >
-            <Rewind className="w-5 h-5" />
+            {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
           </button>
-
-          {/* Play/Pause button */}
-          <button
-            onClick={onPlayPause}
-            className="p-2 hover:bg-dark-700 rounded transition-colors text-white hover:text-primary-400"
-            title={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? (
-              <Pause className="w-5 h-5" />
-            ) : (
-              <Play className="w-5 h-5" />
-            )}
-          </button>
-
-          {/* Fast forward button */}
-          <button
-            onClick={() => onFastForward(10)}
-            className="p-2 hover:bg-dark-700 rounded transition-colors text-white hover:text-primary-400"
-            title="Fast forward 10s"
-          >
-            <FastForward className="w-5 h-5" />
-          </button>
-
-          {/* Volume controls */}
-          <div className="flex items-center gap-2 border-l border-dark-700 pl-2 ml-2">
-            <button
-              onClick={onToggleMute}
-              className="p-2 hover:bg-dark-700 rounded transition-colors text-white hover:text-primary-400"
-              title={isMuted ? 'Unmute' : 'Mute'}
-            >
-              {isMuted || volume === 0 ? (
-                <VolumeX className="w-5 h-5" />
-              ) : (
-                <Volume2 className="w-5 h-5" />
-              )}
-            </button>
+          <div className="flex items-center group w-24 px-1">
             <input
               type="range"
               min="0"
@@ -129,25 +69,72 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
               step="0.1"
               value={volume}
               onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-              className="w-24 h-1 accent-primary-500"
-              title="Volume"
+              className="w-full h-1 accent-primary-500 bg-dark-700 rounded-full appearance-none cursor-pointer"
             />
           </div>
         </div>
 
-        {/* Right controls */}
-        <div className="flex items-center gap-2">
-          {/* Speed selector */}
+        {/* Center Section: Main Playback Controls */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 bg-black/40 p-1 rounded-full border border-white/5">
+            <button
+              onClick={() => onSeek(-60)}
+              className="p-2 text-dark-400 hover:text-white hover:bg-white/5 rounded-full transition-all active:scale-90"
+              title="Back 1 minute"
+            >
+              <SkipBack size={18} />
+            </button>
+            <button
+              onClick={() => onSeek(-10)}
+              className="p-2 text-dark-400 hover:text-white hover:bg-white/5 rounded-full transition-all active:scale-90"
+              title="Back 10 seconds"
+            >
+              <Rewind size={18} />
+            </button>
+
+            <button
+              onClick={onPlayPause}
+              className={`mx-2 w-12 h-12 flex items-center justify-center rounded-full transition-all active:scale-90 shadow-lg ${isPlaying
+                  ? 'bg-red-500 text-white shadow-red-500/40'
+                  : 'bg-primary-600 text-white shadow-primary-500/40'
+                }`}
+            >
+              {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+            </button>
+
+            <button
+              onClick={() => onSeek(10)}
+              className="p-2 text-dark-400 hover:text-white hover:bg-white/5 rounded-full transition-all active:scale-90"
+              title="Forward 10 seconds"
+            >
+              <FastForward size={18} />
+            </button>
+            <button
+              onClick={() => onSeek(60)}
+              className="p-2 text-dark-400 hover:text-white hover:bg-white/5 rounded-full transition-all active:scale-90"
+              title="Forward 1 minute"
+            >
+              <SkipForward size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Right Section: Speed & Live */}
+        <div className="flex items-center gap-3">
           <div className="relative">
             <button
               onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-              className="px-3 py-2 hover:bg-dark-700 rounded transition-colors text-white hover:text-primary-400 text-sm font-medium"
-              title="Playback speed"
+              className="flex items-center gap-2 px-3 py-2 bg-black/40 hover:bg-white/5 rounded-xl border border-white/5 transition-all group"
             >
-              {playbackSpeed}x
+              <Gauge size={16} className="text-primary-400 group-hover:rotate-12 transition-transform" />
+              <span className="text-xs font-black text-white">{playbackSpeed}x</span>
             </button>
+
             {showSpeedMenu && (
-              <div className="absolute bottom-full right-0 mb-2 bg-dark-800 rounded border border-dark-700 py-1 z-50">
+              <div className="absolute bottom-full right-0 mb-3 w-32 bg-dark-900/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <div className="px-3 py-1 mb-1 border-b border-white/5">
+                  <span className="text-[10px] font-bold text-dark-400 uppercase tracking-widest">Speed</span>
+                </div>
                 {speedOptions.map((speed) => (
                   <button
                     key={speed}
@@ -155,18 +142,25 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
                       onSpeedChange(speed);
                       setShowSpeedMenu(false);
                     }}
-                    className={`w-full px-4 py-2 text-sm text-left hover:bg-dark-700 transition-colors ${
-                      playbackSpeed === speed
-                        ? 'text-primary-400 font-medium'
-                        : 'text-white'
-                    }`}
+                    className={`w-full px-4 py-2 text-xs text-left transition-all flex items-center justify-between ${playbackSpeed === speed
+                        ? 'bg-primary-500 text-white'
+                        : 'text-dark-300 hover:bg-white/5 hover:text-white'
+                      }`}
                   >
-                    {speed}x
+                    <span>{speed}x</span>
+                    {playbackSpeed === speed && <div className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" />}
                   </button>
                 ))}
               </div>
             )}
           </div>
+
+          <button
+            onClick={onSyncToLive}
+            className="px-4 py-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white text-xs font-bold rounded-xl border border-red-500/20 transition-all uppercase tracking-widest active:scale-95"
+          >
+            Live
+          </button>
         </div>
       </div>
     </div>

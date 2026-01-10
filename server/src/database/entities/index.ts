@@ -9,3 +9,7 @@ export { DetectionEventEntity } from './detection-event.entity';
 export { RuleEntity } from './rule.entity';
 export { BookmarkEntity } from './bookmark.entity';
 export { DirectoryServerEntity, ServerType, ServerStatus } from './directory-server.entity';
+export { RecordingScheduleEntity, RecordingMode } from './recording-schedule.entity';
+export { StorageLocationEntity, StorageType, RwPolicy, StorageRole } from './storage-location.entity';
+export { RuleScheduleEntity } from './rule-schedule.entity';
+export { LookupListEntity, LookupListType } from './lookup-list.entity';

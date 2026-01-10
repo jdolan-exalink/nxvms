@@ -8,25 +8,30 @@ import { BookmarksController } from './bookmarks.controller';
 import { ExportsController } from './exports.controller';
 import { SharedModule } from '../shared/shared.module';
 
+import { StorageLocationEntity } from '../database/entities';
+import { StorageController } from './storage.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      UserEntity, 
-      AuditLogEntity, 
-      RoleEntity, 
-      BookmarkEntity, 
+      UserEntity,
+      AuditLogEntity,
+      RoleEntity,
+      BookmarkEntity,
       VideoExportEntity,
-      DirectoryServerEntity
+      DirectoryServerEntity,
+      StorageLocationEntity
     ]),
     SharedModule,
   ],
   controllers: [
-    UsersController, 
-    AuditController, 
-    RolesController, 
-    BookmarksController, 
-    ExportsController
+    UsersController,
+    AuditController,
+    RolesController,
+    BookmarksController,
+    ExportsController,
+    StorageController
   ],
   providers: [],
 })
-export class SystemModule {}
+export class SystemModule { }

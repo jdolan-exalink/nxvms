@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { RuleScheduleEntity } from './rule-schedule.entity';
 
 @Entity('rules')
 export class RuleEntity {
@@ -19,6 +20,9 @@ export class RuleEntity {
 
   @Column('jsonb')
   actions: any[]; // e.g. [{ type: 'audit_log' }, { type: 'webhook', url: '...' }]
+
+  @OneToMany(() => RuleScheduleEntity, (schedule) => schedule.rule)
+  schedules: RuleScheduleEntity[];
 
   @CreateDateColumn()
   createdAt: Date;
